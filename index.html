@@ -1,0 +1,1667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="CaptainCook" />
+<meta name="theme-color" content="#1a1614" />
+<title>CaptainCook</title>
+<!-- No icon links yet: the family icon (helm + badge) is its own step, and a
+     link to a file that does not exist is a 404 on every load. Add
+     apple-touch-icon.png + favicon.png here when BRAND.md lands. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"
+        integrity="sha384-tMH8h3BGESGckSAVGZ82T9n90ztNXxvdwvdM6UoR56cYcf+0iGXBliJ29D+wZ/x8"
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"
+        integrity="sha384-bm7MnzvK++ykSwVJ2tynSE5TRdN+xL418osEVF2DE/L/gfWHj91J2Sphe582B1Bh"
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"
+        integrity="sha384-1qlE7MZPM2pHD/pBZCU/yB8UCP52RYL8bge/qNdfNBCWToySp8/M+JL2waXU4hjJ"
+        crossorigin="anonymous"></script>
+<!-- supabase-js PINNED to 2.111.0 - the exact version the old floating "@2" tag
+     was already resolving to, so this is a pin + SRI, not a library upgrade.
+     Pin the ORIGINAL dist/umd/supabase.js, NOT jsDelivr's generated
+     dist/umd/supabase.min.js: that .min.js is byte-for-byte this file plus a
+     jsDelivr-authored banner, and jsDelivr regenerates it and explicitly says
+     not to use SRI with it. The integrity hash is per-version - RECOMPUTE it
+     (sha384, base64, from the new file's live bytes) on any upgrade. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.js"
+        integrity="sha384-faMlYZUtkJj+Sh6Bmu/L0GzPcraRWN6CW+9RH3GUrK/Z0WS9tgaNNt0tHiLxsbdb"
+        crossorigin="anonymous"></script>
+<style>
+/* ============================================================
+   THEME TOKENS - cast-iron charcoal base, tomato accent.
+   Reuses the MenuCaptain/Tracker design system (one palette here).
+   Accent variables keep the shared "--amber" names so ported
+   components drop in unchanged; only the VALUES are CaptainCook's.
+   PROVISIONAL (2026-09-12): the palette is a first pass, chosen so no
+   sibling shares the accent. It gets settled with the app icon.
+   ============================================================ */
+:root{
+  --bg:#1a1614;            /* cast-iron base */
+  --bg-2:#211c19;          /* raised surface */
+  --bg-3:#2a2420;          /* card / input */
+  --bg-4:#362e29;          /* hover / border-strong */
+  --line:#362e2933;        /* hairline */
+  --line-2:#433a34;        /* visible border */
+  --ink:#f3eee9;           /* primary text */
+  --ink-2:#cdc4bc;         /* secondary text */
+  --ink-3:#978c83;         /* muted text */
+  --amber:#e2654a;         /* primary accent, tomato */
+  --amber-2:#ef8c74;       /* lighter tomato */
+  --amber-dim:#e2654a22;   /* tomato tint fill */
+  --amber-line:#e2654a55;  /* tomato border */
+  --green:#8db27a;         /* done / success, herb */
+  --blue:#6fa3c4;          /* info */
+  /* Destructive is RASPBERRY, not the stock #d9536b: that sits a few degrees
+     from the tomato accent, and "primary" and "delete" must never be
+     mistakable for each other. */
+  --red:#d9536b;
+  --violet:#a98bc4;        /* accent alt */
+  --radius:14px;
+  --radius-sm:10px;
+  --radius-lg:20px;
+  --shadow:0 6px 24px -8px rgba(0,0,0,0.55);
+  --shadow-lg:0 18px 50px -12px rgba(0,0,0,0.7);
+  --nav-h:64px;
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  background:
+    radial-gradient(120% 80% at 85% -10%, #231d19 0%, transparent 55%),
+    radial-gradient(140% 90% at -10% 110%, #1f1a17 0%, transparent 50%),
+    var(--bg);
+  background-attachment:fixed;
+  color:var(--ink);
+  font-family:'Outfit',-apple-system,system-ui,sans-serif;
+  font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  overscroll-behavior-y:none;
+}
+#root{min-height:100%;}
+h1,h2,h3,h4{font-family:'Fraunces',Georgia,serif;font-weight:600;margin:0;letter-spacing:-0.01em;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+input,textarea,select{font-family:inherit;font-size:16px;color:var(--ink);}
+::placeholder{color:var(--ink-3);}
+a{color:var(--amber);}
+svg{fill:none;stroke:currentColor;stroke-width:2;}
+
+/* ---------- layout ---------- */
+.app{max-width:680px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));}
+.screen{flex:1;padding:0 18px 24px;animation:fade .35s var(--ease);}
+@keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+.topbar{position:sticky;top:0;z-index:40;padding:calc(env(safe-area-inset-top) + 14px) 18px 12px;
+  background:linear-gradient(180deg, var(--bg) 60%, transparent);}
+.topbar-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.eyebrow{font-family:'Outfit';font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--amber);font-weight:600;}
+.title{font-size:30px;line-height:1.05;margin-top:2px;}
+.title-sm{font-size:22px;}
+.subtle{color:var(--ink-3);font-size:13px;}
+.set-group{font-family:'Outfit';font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin:22px 4px 9px;}
+.updrow{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:4px 0 2px;}
+
+/* ---------- sync banner ---------- */
+.sync{display:flex;align-items:center;gap:8px;font-size:12px;padding:7px 12px;border-radius:999px;
+  margin-top:10px;border:1px solid var(--line-2);background:var(--bg-2);width:fit-content;transition:.3s;}
+.sync .dot{width:8px;height:8px;border-radius:50%;background:var(--ink-3);}
+.sync.idle .dot{background:var(--green);}
+.sync.busy .dot{background:var(--amber);animation:pulse 1s infinite;}
+.sync.pending .dot{background:var(--blue);}
+.sync.error{border-color:var(--red);color:var(--red);}
+.sync.error .dot{background:var(--red);}
+@keyframes pulse{50%{opacity:.3;}}
+
+/* ---------- cards & lists ---------- */
+.card{background:var(--bg-3);border:1px solid var(--line-2);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);}
+.list{display:flex;flex-direction:column;gap:10px;margin-top:14px;}
+.item{display:flex;gap:12px;align-items:flex-start;background:var(--bg-2);border:1px solid var(--line-2);
+  border-radius:var(--radius);padding:13px 14px;transition:.18s var(--ease);width:100%;text-align:left;}
+.item:active{transform:scale(.99);}
+.item-body{flex:1;min-width:0;}
+.item-title{font-size:15.5px;font-weight:500;line-height:1.35;word-break:break-word;}
+.item-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;align-items:center;}
+/* swipe-to-delete on list rows (portfolio standard, ported from Tracker) */
+.swipe-wrap{position:relative;overflow:hidden;border-radius:var(--radius);}
+.swipe-del{position:absolute;top:0;right:0;bottom:0;width:88px;border:none;background:#b23b29;color:#fff;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;font-weight:700;}
+.swipe-del svg{width:18px;height:18px;stroke:#fff;stroke-width:2;fill:none;}
+.swipe-body{position:relative;background:var(--bg);touch-action:pan-y;will-change:transform;}
+.swipe-body>.item{width:100%;}
+.chip{font-size:11px;padding:3px 9px;border-radius:999px;background:var(--bg-4);color:var(--ink-2);
+  display:inline-flex;align-items:center;gap:4px;font-weight:500;letter-spacing:.01em;}
+.chip.amber{background:var(--amber-dim);color:var(--amber-2);border:1px solid var(--amber-line);}
+.chip svg{width:12px;height:12px;flex:0 0 auto;}
+/* category chip colors */
+.chip.red{background:#d9536b22;color:#e79b86;}
+.chip.blue{background:#6fa3c422;color:#93bdd8;}
+.chip.green{background:#7fb08a22;color:#a3cbab;}
+.chip.violet{background:#a98bc422;color:#c3a9dd;}
+
+/* ---------- forms ---------- */
+.field{margin-bottom:14px;}
+.label{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px;font-weight:600;}
+.input,.textarea,.select{width:100%;background:var(--bg-3);border:1px solid var(--line-2);border-radius:var(--radius-sm);
+  padding:12px 13px;color:var(--ink);outline:none;transition:.18s;font-size:16px;}
+.input:focus,.textarea:focus,.select:focus{border-color:var(--amber-line);background:var(--bg-4);}
+.textarea{resize:vertical;min-height:84px;line-height:1.5;}
+.title-field{margin-bottom:18px;}
+.title-field .label{color:var(--amber);}
+.title-input{width:100%;background:var(--bg-3);border:1.5px solid var(--amber-line);border-radius:var(--radius);
+  padding:16px 15px;color:var(--ink);outline:none;transition:.18s;font-size:20px;font-weight:600;line-height:1.3;}
+.title-input::placeholder{color:var(--ink-3);font-weight:500;}
+.title-input:focus{border-color:var(--amber);background:var(--bg-4);box-shadow:0 0 0 3px var(--amber-dim);}
+.select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%238b93a0' stroke-width='2'%3E%3Cpath d='M1 1l5 5 5-5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:34px;}
+.row{display:flex;gap:10px;}
+.row>*{flex:1;}
+/* password field with the reveal eyeball (PORTABLE-IMPROVEMENTS 2026-07-10) */
+.pw-wrap{position:relative;}
+.pw-wrap .input{padding-right:46px;}
+.pw-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;
+  display:flex;align-items:center;justify-content:center;border-radius:50%;color:var(--ink-3);}
+.pw-eye:active{color:var(--ink);}
+.pw-eye svg{width:19px;height:19px;stroke-width:1.9;}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:var(--radius-sm);
+  font-weight:600;font-size:15px;transition:.18s var(--ease);border:1px solid transparent;}
+.btn:active{transform:scale(.97);}
+/* A disabled button used to look identical to a live one, so a dead control
+   still invited the tap. */
+.btn:disabled,.pill:disabled{opacity:.45;cursor:default;}
+.btn:disabled:active,.pill:disabled:active{transform:none;}
+.btn svg{width:15px;height:15px;flex:0 0 auto;}
+.btn-primary{background:var(--amber);color:#241505;}
+.btn-primary:active{background:var(--amber-2);}
+.btn-ghost{background:var(--bg-3);color:var(--ink);border-color:var(--line-2);}
+.btn-danger{background:#d9536b1a;color:var(--red);border-color:#d9536b55;}
+.btn-block{width:100%;}
+.btn-sm{padding:8px 13px;font-size:13px;}
+
+/* tabs / pills */
+.pills{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px;}
+.pill{padding:6px 13px;border-radius:999px;font-size:12.5px;font-weight:600;background:var(--bg-2);border:1px solid var(--line-2);color:var(--ink-3);transition:.15s;}
+.pill.on{background:var(--amber);color:#241505;border-color:var(--amber);}
+/* Actions that must stay reachable as a list grows. Sticks just above the
+   nav, with a fade so content scrolls under it rather than colliding. */
+.stick-actions{position:sticky;bottom:calc(env(safe-area-inset-bottom) + 6px);z-index:20;
+  margin-top:14px;padding:14px 0 6px;
+  background:linear-gradient(180deg,transparent 0%,var(--bg) 40%,var(--bg) 100%);}
+/* horizontal (scrolling) filter pill row + search field with clear (x) */
+.pills-row{display:flex;gap:7px;overflow-x:auto;margin-top:10px;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.pills-row::-webkit-scrollbar{display:none;}
+.pills-row .pill{flex:0 0 auto;}
+.search-wrap{position:relative;margin-top:12px;}
+.search-wrap .input{padding-right:44px;}
+.search-x{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--ink-3);}
+.search-x svg{width:16px;height:16px;}
+
+/* nested full-screen layer (e.g. a picker opened from inside an editor) */
+.layer{position:fixed;inset:0;z-index:80;background:var(--bg);overflow-y:auto;animation:fade .2s;}
+.layer-inner{max-width:680px;margin:0 auto;padding:0 18px 40px;}
+/* Solid for its whole height with a SHORT fade at the very bottom edge.
+   It was solid to 72%, so the bottom quarter of the header was see-through
+   and a scrolling card ghosted a full line of text behind the title. A soft
+   edge is the point; a transparent header is not. */
+.layer-top{position:sticky;top:0;z-index:5;background:linear-gradient(180deg,var(--bg) 0,var(--bg) calc(100% - 12px),transparent);
+  padding:calc(env(safe-area-inset-top) + 12px) 0 8px;display:flex;align-items:center;gap:12px;}
+.layer-top h2{font-size:21px;}
+
+/* empty state */
+.empty{text-align:center;padding:56px 20px;color:var(--ink-3);}
+.empty .glyph{font-family:'Fraunces';font-size:44px;color:var(--line-2);margin-bottom:10px;}
+.empty p{margin:6px 0 0;font-size:14px;}
+
+/* ---------- bottom nav ---------- */
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:50;height:calc(var(--nav-h) + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom);
+  background:rgba(26,22,20,.92);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border-top:1px solid var(--line-2);display:flex;align-items:center;justify-content:space-around;max-width:680px;margin:0 auto;}
+.nav-btn{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink-3);font-size:10px;font-weight:600;letter-spacing:.03em;padding:8px 0;transition:.15s;
+  position:relative;}   /* anchors the active marker below */
+/* WHERE AM I. Ported from MenuCaptain, whose comment makes the case: the
+   loudest thing in this bar is the filled centre +, which is not a place you
+   can BE, while the one question the bar exists to answer was carried by a
+   grey-to-amber colour shift on a 10px label. Colour alone also fails anyone
+   who does not separate those two hues.
+
+   The marker is positional, so it reads before you have read anything: a short
+   accent bar at the top edge of the tab you are on. Colour stays as the second
+   cue, and the icons follow via currentColor without being told. */
+.nav-btn.on{color:var(--amber);}
+.nav-btn.on::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:22px;height:2.5px;border-radius:0 0 3px 3px;background:var(--amber);}
+.nav-btn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;}
+.icon-btn{flex:0 0 auto;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;
+  background:var(--bg-3);border:1px solid var(--line-2);color:var(--ink-2);transition:.15s;}
+.icon-btn:active{border-color:var(--amber-line);background:var(--bg-4);}
+.icon-btn svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;}
+/* Center + in the bottom nav (2026-07-24 portfolio nav standard; PriorityCaptain pattern) */
+.nav-fab{flex:0 0 auto;margin-top:-22px;padding:0 8px;}
+.fab{width:54px;height:54px;border-radius:50%;background:var(--amber);color:#241505;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 10px 26px -6px rgba(226,101,74,.55);transition:.18s var(--ease);}
+.nav-fab:active .fab{transform:scale(.92);}
+.fab svg{width:26px;height:26px;stroke:#241505;stroke-width:2.4;fill:none;}
+
+/* center-+ action sheet rows (MenuCaptain pattern) */
+.sheet-item{display:flex;align-items:center;gap:14px;padding:14px 4px;width:100%;text-align:left;border-bottom:1px solid var(--line);}
+.sheet-item:last-child{border-bottom:none;}
+.sheet-item .ic{width:40px;height:40px;border-radius:11px;background:var(--amber-dim);border:1px solid var(--amber-line);
+  display:flex;align-items:center;justify-content:center;flex:none;}
+.sheet-item .ic svg{width:20px;height:20px;stroke:var(--amber-2);}
+.sheet-item .t1{font-weight:600;font-size:15px;}
+.sheet-item .t2{font-size:12.5px;color:var(--ink-3);margin-top:1px;}
+.sheet-div{border-top:1px solid var(--line-2);margin:4px 0;}
+
+/* More hub rows (PriorityCaptain pattern) */
+.act-row{display:flex;align-items:center;gap:14px;padding:15px 6px;border-bottom:1px solid var(--line);width:100%;text-align:left;transition:.15s;}
+.act-row:last-child{border-bottom:none;}
+.act-row:active{background:var(--bg-3);}
+.act-ic{width:40px;height:40px;border-radius:11px;background:var(--amber-dim);border:1px solid var(--amber-line);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.act-ic svg{width:20px;height:20px;stroke:var(--amber-2);fill:none;stroke-width:1.8;}
+.act-txt{flex:1;min-width:0;}
+.act-txt b{display:block;font-size:15.5px;font-weight:600;}
+.act-txt span{font-size:12.5px;color:var(--ink-3);}
+.act-chev{color:var(--ink-3);flex-shrink:0;display:flex;}
+
+/* ---------- sheet / modal ---------- */
+.scrim{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);animation:fade .2s;}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:61;max-width:680px;margin:0 auto;
+  background:var(--bg-2);border-top-left-radius:var(--radius-lg);border-top-right-radius:var(--radius-lg);
+  border-top:1px solid var(--line-2);box-shadow:var(--shadow-lg);
+  max-height:92vh;overflow-y:auto;animation:slideup .32s var(--ease);
+  padding:8px 18px calc(24px + env(safe-area-inset-bottom));}
+@keyframes slideup{from{transform:translateY(100%);}to{transform:none;}}
+.sheet-grip{width:38px;height:4px;border-radius:999px;background:var(--line-2);margin:8px auto 14px;}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;}
+.sheet-title{font-size:21px;margin-bottom:0;}
+.sheet-x{flex:0 0 auto;width:38px;height:38px;border-radius:50%;background:var(--bg-3);border:1px solid var(--line-2);
+  display:flex;align-items:center;justify-content:center;color:var(--ink-2);}
+.sheet-x:active{background:var(--bg-4);}
+.sheet-x svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;}
+
+/* ---------- auth ---------- */
+.auth-wrap{max-width:420px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:24px 22px calc(24px + env(safe-area-inset-bottom));}
+.auth-brand{text-align:center;margin-bottom:26px;}
+.auth-brand .mark{font-family:'Fraunces';font-size:40px;font-weight:700;letter-spacing:-.02em;}
+.auth-brand .mark span{color:var(--amber);}
+.auth-brand .tag{color:var(--ink-3);font-size:13.5px;margin-top:6px;}
+.auth-msg{font-size:13px;padding:10px 12px;border-radius:var(--radius-sm);margin-bottom:14px;line-height:1.45;}
+.auth-msg.err{background:#d9536b1a;border:1px solid #d9536b55;color:#e6a08d;}
+.auth-msg.ok{background:#7fb08a1a;border:1px solid #7fb08a55;color:#a7cbad;}
+.auth-switch{text-align:center;margin-top:16px;font-size:13.5px;color:var(--ink-3);}
+.auth-switch button{color:var(--amber);font-weight:600;}
+.auth-forgot{display:block;margin:14px auto 0;background:none;border:none;color:var(--ink-3);font-size:13px;text-decoration:underline;cursor:pointer;}
+
+/* ---------- misc ---------- */
+.divider{height:1px;background:var(--line-2);margin:18px 0;}
+.hint{font-size:12.5px;color:var(--ink-3);line-height:1.5;margin-top:6px;}
+.danger-text{color:var(--red);}
+.center{text-align:center;}
+.spin{width:20px;height:20px;border:2px solid var(--amber-line);border-top-color:var(--amber);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.spin-lg{width:34px;height:34px;border-width:3px;margin:60px auto;}
+.log{font-family:ui-monospace,Menlo,monospace;font-size:11px;background:#110e0c;border:1px solid var(--line-2);border-radius:var(--radius-sm);padding:12px;max-height:320px;overflow:auto;line-height:1.6;white-space:pre-wrap;word-break:break-word;}
+.log .tag{color:var(--amber-2);}
+.log .err{color:var(--red);}
+.log .t{color:var(--ink-3);}
+.toast{position:fixed;bottom:calc(var(--nav-h) + 24px);left:50%;transform:translateX(-50%);z-index:90;
+  background:var(--bg-4);border:1px solid var(--line-2);color:var(--ink);padding:9px 18px;border-radius:999px;font-size:13.5px;font-weight:500;box-shadow:var(--shadow-lg);animation:fade .2s;max-width:90%;
+  display:flex;align-items:center;gap:14px;}
+.toast-undo{background:var(--amber);border:none;color:#1a1614;font-weight:800;font-size:14px;
+  padding:7px 16px;border-radius:999px;flex:0 0 auto;}
+/* An undo toast is the only one you can ACT on, so it stops looking like the
+   ones you cannot: amber edge, a real button rather than underlined text. */
+.toast.can-undo{border-color:var(--amber-line);padding:8px 8px 8px 18px;}
+/* Sticky, not just first-in-the-flow: it used to scroll away with the
+   content, so it looked like it only existed on whichever screen happened
+   to be at the top. An update you can't reach is an update you don't take. */
+.update-bar{position:sticky;top:0;z-index:55;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:var(--amber);color:#241505;border:none;text-align:left;padding:calc(env(safe-area-inset-top) + 10px) 16px 10px;font-size:13.5px;font-weight:600;}
+.update-go{flex:0 0 auto;background:#241505;color:var(--amber);border-radius:999px;padding:6px 15px;font-weight:800;font-size:12.5px;}
+/* ---------- reviewed-content markers ----------
+   HARD GATE 2 (Chris, 2026-09-12): a technique that has not been reviewed must
+   LOOK unreviewed everywhere it can appear. The client only ever receives
+   approved pages today, so .draft-banner has no user-facing caller yet - it is
+   the single style the review screen must use, defined here so a draft can
+   never be rendered with the finished-guidance look by accident. */
+.draft-banner{border:1.5px dashed var(--blue);background:#6fa3c41a;color:#a9cbe0;border-radius:var(--radius-sm);
+  padding:10px 12px;font-size:13px;font-weight:600;letter-spacing:.02em;}
+.reviewed-note{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--green);font-weight:600;}
+.reviewed-note svg{width:13px;height:13px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+/* ============================================================
+   CAPTAINCOOK - single-file PWA (React via CDN + Babel standalone).
+   WHAT THIS FILE OWNS: the whole client - auth, the offline-first sync
+   store, the recipe domain screens, settings, and self-update.
+   WHAT IT DELIBERATELY DOES NOT DO: hold any secret (the Supabase anon key
+   and API base are public-safe; service-role and Anthropic keys live only
+   on the backend), talk to Supabase for DATA (auth only - data goes through
+   the backend), or show a technique that has not been reviewed.
+   Extracted 2026-09-12 from the FitnessCaptain shell (itself from
+   HomeCaptain). Authoritative project doc: CG Apps\Recipes\HANDOFF.md.
+   ============================================================ */
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+/* ============================================================
+   LOGGING - module-level ring buffer, ASCII-only bracketed tags.
+   iPhone has no console, so Settings -> Diagnostics renders this.
+   ============================================================ */
+const LOG_CAP = 600;
+const LOG = [];
+// User-facing semantic version (MAJOR.MINOR.PATCH). Shown in Settings + update
+// prompts. Bump on every deploy: PATCH for a fix, MINOR for a feature.
+const APP_VERSION = "0.1.0";
+// Internal build stamp - what the updater COMPARES (monotonic) + cache-busts.
+// Keep sw.js VERSION in lockstep with APP_VERSION on every deploy.
+const BUILD = "2026-09-12.1";
+// True iff build stamp `a` (YYYY-MM-DD.N) is strictly newer than `b`.
+function buildIsNewer(a, b){
+  const parse = s => String(s||"").split(/[-.]/).map(n=>parseInt(n,10)||0);
+  const pa=parse(a), pb=parse(b), len=Math.max(pa.length,pb.length);
+  for(let i=0;i<len;i++){ const x=pa[i]||0, y=pb[i]||0; if(x>y) return true; if(x<y) return false; }
+  return false;
+}
+function log(tag, msg){
+  const line = { t: new Date().toISOString().slice(11,19), tag, msg: String(msg) };
+  LOG.push(line);
+  if (LOG.length > LOG_CAP) LOG.shift();
+  try { console.log("[" + tag + "] " + line.msg); } catch(e){}
+}
+log("INIT", "CaptainCook booting - v"+APP_VERSION+" (build "+BUILD+")");
+
+/* ============================================================
+   SMALL UTILITIES
+   ============================================================ */
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const nowISO = () => new Date().toISOString();
+function fmtDate(iso){
+  if(!iso) return "";
+  const d = new Date(iso + (iso.length<=10 ? "T00:00:00" : ""));
+  if(isNaN(d)) return "";
+  return d.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
+}
+function todayStr(){ const d=new Date(), p=n=>String(n).padStart(2,"0"); return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate()); }
+
+/* ============================================================
+   LOCAL STORAGE LAYER (namespaced "captaincook:")
+   Offline cache; the backend + Supabase are the source of truth at rest.
+   NAMES ARE FOREVER - do not rename this namespace after launch.
+   ============================================================ */
+const NS = "captaincook:";
+const lsGet = (k, fb) => { try { const v = localStorage.getItem(NS+k); return v===null ? fb : JSON.parse(v); } catch(e){ log("ERROR","lsGet "+k+": "+e.message); return fb; } };
+const lsSet = (k, v) => { try { localStorage.setItem(NS+k, JSON.stringify(v)); } catch(e){ log("ERROR","lsSet "+k+": "+e.message); } };
+const lsDel = (k) => { try { localStorage.removeItem(NS+k); } catch(e){} };
+
+// One per-record JSONB collection per entity (mirrors the backend
+// ARRAY_COLLECTIONS). Everything here belongs to ONE user. Techniques are
+// deliberately absent: they are shared, reviewed content with their own
+// read-only endpoint, not something a device syncs back.
+const FILES = ["recipes","sources","cook_log","meal_plan","shopping_list","pantry"];
+
+/* ============================================================
+   BACKEND + AUTH CONFIG
+   All three values are PUBLIC-SAFE and intentionally shipped in the browser:
+   the Supabase anon key only permits auth (not data access - data goes through
+   our backend), and the API base is just a URL. The real secrets (service-role
+   key, Anthropic key) live ONLY on the Railway backend, never here.
+   ============================================================ */
+// PLACEHOLDERS until Chris's account steps land (Supabase project, Railway
+// service). While any value still says REPLACE, CONFIGURED is false and the
+// sign-in screen says so instead of failing against a dead URL.
+const SUPABASE_URL = "https://REPLACE-ME.supabase.co";
+// Supabase anon / publishable key (Settings > API Keys > anon public). This is
+// PUBLIC-SAFE by design - it only permits auth, never data access.
+const SUPABASE_ANON_KEY = "REPLACE-ME";
+const API_BASE = "https://REPLACE-ME.up.railway.app";
+
+const CONFIGURED =
+  SUPABASE_URL.indexOf("REPLACE") === -1 &&
+  SUPABASE_ANON_KEY.indexOf("REPLACE") === -1 &&
+  API_BASE.indexOf("REPLACE") === -1;
+if(!CONFIGURED) log("CONFIG","backend placeholders present - running unconfigured");
+
+// Supabase client - AUTH ONLY (login, session, token refresh). Data + AI never
+// touch it; they go through our backend with the user's access token.
+const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY || "unconfigured", {
+  auth: { persistSession: true, autoRefreshToken: true, storage: window.localStorage, storageKey: "captaincook-auth" }
+});
+
+async function authToken(){
+  try{ const { data } = await supa.auth.getSession(); return data.session ? data.session.access_token : null; }
+  catch(e){ log("ERROR","authToken: "+e.message); return null; }
+}
+
+/* ============================================================
+   BACKEND COLLECTIONS API
+   GET  /api/collection/<name> -> the whole array
+   PUT  /api/collection/<name> -> replace the whole array
+   `meta` is a per-user singleton OBJECT, so it gets its own load/save.
+   ============================================================ */
+async function collGet(file){
+  const token = await authToken();
+  if(!token) throw new Error("Not signed in");
+  let r;
+  try{ r = await fetch(API_BASE + "/api/collection/" + file, { headers: { "Authorization":"Bearer "+token } }); }
+  catch(e){ throw transportError(e); }
+  if(!r.ok){ const t=await r.text(); log("ERROR","GET "+file+" "+r.status+" "+t.slice(0,140));
+    if(r.status===401) throw new Error("Session expired - sign in again.");
+    throw new Error("Load failed ("+r.status+")"); }
+  const j = await r.json();
+  const arr = Array.isArray(j) ? j : [];
+  log("API","GET "+file+" ok ("+arr.length+" rows)");
+  return arr;
+}
+async function collPut(file, data){
+  const token = await authToken();
+  if(!token) throw new Error("Not signed in");
+  let r;
+  try{
+    r = await fetch(API_BASE + "/api/collection/" + file, {
+      method:"PUT",
+      headers:{ "Authorization":"Bearer "+token, "Content-Type":"application/json" },
+      body: JSON.stringify(data)
+    });
+  }catch(e){ throw transportError(e); }
+  if(!r.ok){ const t=await r.text(); log("ERROR","PUT "+file+" "+r.status+" "+t.slice(0,140));
+    if(r.status===401) throw new Error("Session expired - sign in again.");
+    throw new Error("Save failed ("+r.status+")"); }
+  log("API","PUT "+file+" ok ("+data.length+" rows)");
+  return true;
+}
+async function metaGet(){
+  const token = await authToken();
+  if(!token) throw new Error("Not signed in");
+  let r;
+  try{ r = await fetch(API_BASE + "/api/collection/meta", { headers:{ "Authorization":"Bearer "+token } }); }
+  catch(e){ throw transportError(e); }
+  if(!r.ok){ if(r.status===401) throw new Error("Session expired - sign in again."); throw new Error("Load failed ("+r.status+")"); }
+  const j = await r.json();
+  return (j && typeof j==="object" && !Array.isArray(j)) ? j : {};
+}
+async function metaPut(obj){
+  const token = await authToken();
+  if(!token) throw new Error("Not signed in");
+  let r;
+  try{
+    r = await fetch(API_BASE + "/api/collection/meta", {
+      method:"PUT",
+      headers:{ "Authorization":"Bearer "+token, "Content-Type":"application/json" },
+      body: JSON.stringify(obj)
+    });
+  }catch(e){ throw transportError(e); }
+  if(!r.ok){ if(r.status===401) throw new Error("Session expired - sign in again."); throw new Error("Save failed ("+r.status+")"); }
+  return true;
+}
+
+/* ============================================================
+   AI RELAY (backend-metered). Task label routes the model server-side.
+   Tasks are declared in the backend's AI_MODELS_BUILTIN; the recipe
+   features that call them land in later build steps.
+   ============================================================ */
+/* A fetch that never completes rejects with the BROWSER's wording - Safari
+   says "Load failed", Chrome "Failed to fetch" - and that was reaching the
+   user verbatim. These calls can run a minute (a long recipe with photos is a lot
+   of tokens), so a locked screen or a blip in signal lands here often
+   enough to deserve a sentence that says what to do. */
+function transportError(e){
+  const m = String((e && e.message) || "");
+  if(/load failed|failed to fetch|networkerror|network request failed/i.test(m))
+    return new Error("Couldn't reach the server - check your connection and try again. Nothing was saved.");
+  return e;
+}
+
+async function aiRelay(task, messages, { system=null, maxTokens=4096 } = {}){
+  const token = await authToken();
+  if(!token) throw new Error("Not signed in.");
+  let r;
+  try{
+    r = await fetch(API_BASE + "/api/ai/relay",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+token },
+      body: JSON.stringify({ task, model:"claude-sonnet-5", max_tokens:maxTokens, system, messages })
+    });
+  }catch(e){ log("ERROR","relay transport: "+(e&&e.message)); throw transportError(e); }
+  if(!r.ok){
+    if(r.status===401) throw new Error("Session expired - sign in again.");
+    if(r.status===402 || r.status===429) throw new Error("AI is at its limit for now. Try again later.");
+    /* The relay sends a plain-English reason for the failures a user can DO
+       something about - too much pasted at once, provider busy - and it is
+       written by us, never the upstream body, which can carry the API key.
+       A bare "AI error 502" is a number that says nothing and no hint that
+       the fix was to send less (found on FitnessCaptain). */
+    let why = "";
+    try{ const j = await r.json(); if(j && typeof j.detail === "string") why = j.detail; }
+    catch(e){ /* no body, fall through to the status */ }
+    if(r.status===413) throw new Error(why || "That is too much to read at once - try a shorter recipe or fewer photos.");
+    if(r.status===503) throw new Error(why || "AI is temporarily unavailable.");
+    throw new Error(why || ("AI error "+r.status+"."));
+  }
+  let j;
+  try{ j = await r.json(); }
+  catch(e){ throw transportError(e); }
+  return (j.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n");
+}
+function stripFences(s){ return String(s).replace(/```json/gi,"").replace(/```/g,"").trim(); }
+/* ============================================================
+   TECHNIQUES API (shared, reviewed content - READ ONLY)
+   HARD GATE 2 (Chris, 2026-09-12): technique pages are drafted by AI and
+   reviewed by Chris, and an unreviewed page cannot be published. The gate
+   lives in the DATABASE (the published_techniques view only contains
+   approved rows); this endpoint reads that view, so the client has no way to
+   ask for a draft even by mistake.
+   HARD GATE 1: temperatures on a technique come only from the curated USDA
+   FSIS table, never from the page text or the model.
+   ============================================================ */
+async function techniquesGet(){
+  const token = await authToken();
+  if(!token) throw new Error("Not signed in");
+  let r;
+  try{ r = await fetch(API_BASE + "/api/techniques", { headers:{ "Authorization":"Bearer "+token } }); }
+  catch(e){ throw transportError(e); }
+  if(!r.ok){
+    if(r.status===401) throw new Error("Session expired - sign in again.");
+    throw new Error("Load failed ("+r.status+")");
+  }
+  const j = await r.json();
+  return Array.isArray(j) ? j : [];
+}
+
+/* ============================================================
+   DOMAIN CONSTANTS
+   ============================================================ */
+// cfg rides the synced meta object. units: "us" (cups, oz, F) | "metric" (g, ml, C).
+const DEFAULT_CFG = { appName:"CaptainCook", units:"us" };
+
+/* ============================================================
+   DATA STORE HOOK
+   Holds all entities in memory + localStorage. Optimistic local writes, then
+   push each changed collection to the backend. Dirty collections retry on the
+   next sign-in / when the device comes back online. Ported from FitnessCaptain
+   (pull skips dirty collections, so local edits are never overwritten by a
+   pull) with HomeCaptain's refresh-on-resume and Whereabouts' Reload from
+   cloud (PORTABLE-IMPROVEMENTS 2026-08-01).
+   ============================================================ */
+function useStore(){
+  const [cfg, setCfg] = useState(() => ({...DEFAULT_CFG, ...lsGet("cfg", {})}));
+  const [data, setData] = useState(() => {
+    const d = {}; FILES.forEach(f => d[f] = lsGet("cache:"+f, [])); return d;
+  });
+  const [dirty, setDirty] = useState(() => lsGet("dirty", {}));
+  const [sync, setSync] = useState("idle");       // idle | busy | pending | error
+  const [syncMsg, setSyncMsg] = useState("");
+  const [online, setOnline] = useState(navigator.onLine);
+  const [authed, setAuthed] = useState(false);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authReady, setAuthReady] = useState(false);
+  // true after a PASSWORD_RECOVERY event (user landed here from a reset link)
+  const [recovery, setRecovery] = useState(false);
+
+  const dataRef = useRef(data); dataRef.current = data;
+  const dirtyRef = useRef(dirty); dirtyRef.current = dirty;
+  const cfgRef = useRef(cfg); cfgRef.current = cfg;
+  // Last-pulled meta object, so pushes preserve keys other builds may add.
+  const metaBaseRef = useRef({});
+  const cfgDirtyRef = useRef(lsGet("cfgDirty", false));
+  const authedRef = useRef(false);
+
+  // dirtyRef is written SYNCHRONOUSLY, not left to the re-render: pullAll sets
+  // a flag and reads dirtyRef in the same tick, so a flag set via setState alone
+  // was invisible until the re-render (found on FitnessCaptain).
+  const setDirtyFlag = useCallback((file, on) => {
+    const next = {...dirtyRef.current};
+    if(on) next[file]=true; else delete next[file];
+    dirtyRef.current = next;
+    setDirty(next); lsSet("dirty", next);
+  }, []);
+
+  // Push one collection to the backend. Leaves its dirty flag set on failure so
+  // the next flush retries it.
+  const pushFile = useCallback(async (file) => {
+    if(!authedRef.current) return;
+    if(!navigator.onLine){ setSync("pending"); return; }
+    try{
+      setSync("busy");
+      await collPut(file, dataRef.current[file] || []);
+      setDirtyFlag(file, false);
+      setSync("idle");
+    }catch(e){ setSync("error"); setSyncMsg(e.message||"Sync failed"); log("ERROR","pushFile "+file+": "+e.message); }
+  }, [setDirtyFlag]);
+
+  const pushCfg = useCallback(async () => {
+    if(!cfgDirtyRef.current || !authedRef.current) return;
+    if(!navigator.onLine){ setSync("pending"); return; }
+    try{
+      await metaPut({ ...metaBaseRef.current, cfg: cfgRef.current });
+      cfgDirtyRef.current=false; lsSet("cfgDirty", false);
+    }
+    catch(e){ setSync("error"); setSyncMsg(e.message||"Sync failed"); log("ERROR","pushCfg: "+e.message); }
+  }, []);
+
+  // Pull everything from the backend into the local cache. Dirty collections
+  // are NOT overwritten (their local edits win; the loop at the end pushes them).
+  const pullAll = useCallback(async () => {
+    if(!authedRef.current) return;
+    setSync("busy");
+    try{
+      const next = {...dataRef.current};
+      for(const f of FILES){
+        if(dirtyRef.current[f]){ log("SYNC","pull skipping dirty "+f); continue; }
+        next[f] = await collGet(f); lsSet("cache:"+f, next[f]);
+      }
+      setData(next); dataRef.current = next;
+      const m = await metaGet();
+      metaBaseRef.current = (m && typeof m==="object") ? m : {};
+      if(m && m.cfg && typeof m.cfg==="object" && !cfgDirtyRef.current){
+        const merged = {...DEFAULT_CFG, ...m.cfg};
+        setCfg(merged); lsSet("cfg", merged); cfgRef.current = merged;
+      }
+      setSync(Object.keys(dirtyRef.current).length ? "pending" : "idle"); setSyncMsg("");
+      log("SYNC","pull complete");
+      for(const f of Object.keys(dirtyRef.current)){ await pushFile(f); }
+      await pushCfg();
+    }catch(e){ setSync("error"); setSyncMsg(e.message||"Load failed"); log("ERROR","pullAll: "+e.message); }
+  }, [pushFile, pushCfg]);
+
+  // Flush any dirty collections + config (called on online + after sign-in).
+  const flush = useCallback(async () => {
+    if(!authedRef.current || !navigator.onLine) return;
+    for(const f of Object.keys(dirtyRef.current)){ await pushFile(f); }
+    await pushCfg();
+  }, [pushFile, pushCfg]);
+
+  // Mutate a collection: optimistic local write + persist + push.
+  const saveCollection = useCallback((file, items) => {
+    // dataRef is updated SYNCHRONOUSLY, before pushFile reads it. Doing this
+    // inside a setData(prev => ...) updater let React defer the write, so a
+    // save fired from a click handler pushed the PREVIOUS contents and then
+    // cleared the dirty flag (found on HomeCaptain).
+    const next = {...dataRef.current, [file]: items};
+    dataRef.current = next;
+    setData(next);
+    lsSet("cache:"+file, items);
+    setDirtyFlag(file, true);
+    pushFile(file);
+  }, [pushFile, setDirtyFlag]);
+
+  const saveCfg = useCallback((next) => {
+    setCfg(next); lsSet("cfg", next); cfgRef.current = next;
+    cfgDirtyRef.current = true; lsSet("cfgDirty", true);
+    pushCfg();
+  }, [pushCfg]);
+
+  /* RELOAD FROM CLOUD (PORTABLE-IMPROVEMENTS 2026-08-01, from Whereabouts).
+     Collections sync WHOLESALE: a PUT replaces the collection and deletes rows
+     that are not in it. So data loaded straight into Postgres (an SQL load, a
+     server-side fix, another device) can be wiped by a stale-but-dirty local
+     copy pushing back. This makes the cloud authoritative without touching the
+     session. It DISCARDS unsynced local edits, so Settings confirms first. */
+  const reloadFromCloud = useCallback(async () => {
+    log("SYNC","reloadFromCloud - discarding local cache, pulling fresh");
+    FILES.forEach(f => lsDel("cache:"+f));
+    dirtyRef.current = {}; setDirty({}); lsSet("dirty", {});
+    cfgDirtyRef.current = false; lsSet("cfgDirty", false);
+    const emptied = {}; FILES.forEach(f => emptied[f] = []);
+    dataRef.current = emptied; setData(emptied);
+    await pullAll();
+  }, [pullAll]);
+
+  // ---- auth actions ----
+  const signIn = useCallback(async (email, password) => {
+    const { error } = await supa.auth.signInWithPassword({ email:(email||"").trim(), password:password||"" });
+    if(error){ log("AUTH","sign-in failed: "+error.message); throw new Error(error.message); }
+    log("AUTH","sign-in ok");
+  }, []);
+
+  // Self-serve signup. With email confirmation ON (Supabase setting), there is
+  // no session until the user clicks the emailed link, so data.session is null
+  // and the UI shows a "check your email" state. emailRedirectTo brings the
+  // confirmation link back to THIS app (allow-list it in Supabase Auth URLs).
+  const signUp = useCallback(async (email, password) => {
+    const redirectTo = window.location.origin + window.location.pathname;
+    const { data, error } = await supa.auth.signUp({
+      email:(email||"").trim(), password:password||"",
+      options:{ emailRedirectTo: redirectTo }
+    });
+    if(error){ log("AUTH","sign-up failed: "+error.message); throw new Error(error.message); }
+    const needsConfirm = !data.session;
+    log("AUTH","sign-up ok needsConfirm="+needsConfirm);
+    return { needsConfirm };
+  }, []);
+
+  // "Forgot password?" - email a reset link. The link returns here with a
+  // recovery token; onAuthStateChange flips `recovery` to show SetPassword.
+  const requestReset = useCallback(async (email) => {
+    const redirectTo = window.location.origin + window.location.pathname;
+    const { error } = await supa.auth.resetPasswordForEmail((email||"").trim(), { redirectTo });
+    if(error){ log("AUTH","reset request failed: "+error.message); throw new Error(error.message); }
+    log("AUTH","reset email sent");
+  }, []);
+
+  // Set a new password for the current (recovery) session, then leave recovery mode.
+  const updatePassword = useCallback(async (newPassword) => {
+    const { error } = await supa.auth.updateUser({ password: newPassword });
+    if(error){ log("AUTH","updatePassword failed: "+error.message); throw new Error(error.message); }
+    setRecovery(false);
+    log("AUTH","password updated");
+  }, []);
+
+  const signOut = useCallback(async () => {
+    try{ await supa.auth.signOut(); }catch(e){ log("ERROR","signOut: "+e.message); }
+    // Clear the local cache + dirty flags so the next login starts CLEAN from
+    // the server. Prevents one account's data leaking to another on a shared
+    // device. The onAuthStateChange handler below does the state reset.
+    log("AUTH","sign-out requested");
+  }, []);
+
+  // ---- auth session wiring ----
+  useEffect(() => {
+    let mounted = true;
+    supa.auth.getSession().then(({ data }) => {
+      if(!mounted) return;
+      const s = data.session;
+      authedRef.current = !!s;
+      setAuthed(!!s); setAuthEmail(s ? (s.user.email||"") : ""); setAuthReady(true);
+      if(s){ pullAll(); }
+    }).catch(e => { log("ERROR","getSession: "+e.message); setAuthReady(true); });
+    const { data: sub } = supa.auth.onAuthStateChange((evt, session) => {
+      if(evt === "PASSWORD_RECOVERY"){ log("AUTH","password recovery link"); setRecovery(true); }
+      const was = authedRef.current;
+      authedRef.current = !!session;
+      setAuthed(!!session); setAuthEmail(session ? (session.user.email||"") : "");
+      if(session && !was){ pullAll(); }
+      else if(!session && was){
+        // Sign-out: wipe local cache so a shared device doesn't leak data.
+        FILES.forEach(f => { lsDel("cache:"+f); });
+        lsDel("dirty"); lsDel("cfg"); lsDel("cfgDirty");
+        const blank = {}; FILES.forEach(f => blank[f]=[]);
+        setData(blank); dataRef.current = blank;
+        setDirty({}); dirtyRef.current = {};
+        setCfg(DEFAULT_CFG); cfgRef.current = DEFAULT_CFG;
+        metaBaseRef.current = {}; cfgDirtyRef.current = false;
+        log("AUTH","signed out (local cache + config cleared)");
+      }
+    });
+    return () => { mounted = false; sub.subscription.unsubscribe(); };
+  }, [pullAll]);
+
+  // ---- online/offline flush ----
+  useEffect(() => {
+    const goOnline = () => { setOnline(true); log("SYNC","online"); flush(); };
+    const goOffline = () => { setOnline(false); log("SYNC","offline"); setSync("pending"); };
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => { window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline); };
+  }, [flush]);
+
+  // ---- refresh data on RESUME (from HomeCaptain) ----
+  // pullAll otherwise runs only on cold launch / sign-in, so a device left open
+  // in the background never sees changes made on another device. Push pending
+  // local edits FIRST, then pull, so a refresh cannot clobber unsynced changes.
+  // Debounced so quick tab-switches don't thrash.
+  useEffect(() => {
+    let lastPull = Date.now();          // mount already pulled
+    const MIN_GAP = 30 * 1000;
+    const maybePull = async () => {
+      if(!authedRef.current || !navigator.onLine) return;
+      const now = Date.now();
+      if(now - lastPull < MIN_GAP) return;
+      lastPull = now;
+      await flush();
+      await pullAll();
+    };
+    const onVis = () => { if(document.visibilityState === "visible") maybePull(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [flush, pullAll]);
+
+  return { data, cfg, sync, syncMsg, online, authed, authEmail, authReady, recovery,
+           saveCollection, saveCfg, pullAll, flush, reloadFromCloud,
+           signIn, signUp, signOut, requestReset, updatePassword };
+}
+
+/* ============================================================
+   ICONS (inline feather-style)
+   ============================================================ */
+const Icon = ({d, size}) => (
+  <svg viewBox="0 0 24 24" width={size||22} height={size||22} fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+    {d.map((p,i)=><path key={i} d={p}/>)}
+  </svg>
+);
+// WARNING: an ICONS key that does not exist throws only at RUNTIME, when the
+// component renders - the compile gate cannot see it (found on FitnessCaptain).
+const ICONS = {
+  book:    ["M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2","M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2","M9 12h6","M9 16h6"],
+  gear:    ["M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z","M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"],
+  x:       ["M18 6L6 18","M6 6l12 12"],
+  trash:   ["M3 6h18","M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2","M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6","M10 11v6","M14 11v6"],
+  back:    ["M19 12H5","M12 19l-7-7 7-7"],
+  refresh: ["M23 4v6h-6","M1 20v-6h6","M3.51 9a9 9 0 0 1 14.85-3.36L23 10","M1 14l4.64 4.36A9 9 0 0 0 20.49 15"],
+  sparkle: ["M12 3l1.7 4.8L18.5 9.5l-4.8 1.7L12 16l-1.7-4.8L5.5 9.5l4.8-1.7z","M18 14l.8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8z"],
+  chev:    ["M9 18l6-6-6-6"],
+  more:    ["M4.6 12a1.2 1.2 0 1 0 2.4 0 1.2 1.2 0 1 0-2.4 0","M10.8 12a1.2 1.2 0 1 0 2.4 0 1.2 1.2 0 1 0-2.4 0","M17 12a1.2 1.2 0 1 0 2.4 0 1.2 1.2 0 1 0-2.4 0"],
+  eye:     ["M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z","M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"],
+  eyeOff:  ["M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94","M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19","M14.12 14.12a3 3 0 1 1-4.24-4.24","M1 1l22 22"],
+  text:    ["M5 5h14","M5 10h14","M5 15h9"],
+  check:   ["M20 6L9 17l-5-5"],
+  calendar:["M3 5h18v16H3z","M16 3v4","M8 3v4","M3 10h18"],
+  cart:    ["M6 6h15l-1.5 9h-12z","M6 6L5 3H2","M9 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2z","M18 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"],
+  flame:   ["M12 22c4 0 7-2.7 7-7 0-4-3-6.5-4-10-2 2-2.5 4-2.5 6-1-.8-2-2-2.5-3.5C8 9.5 5 12 5 15c0 4.3 3 7 7 7z"],
+  jar:     ["M7 3h10v3H7z","M6 6h12v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z","M6 11h12"],
+};
+
+/* ============================================================
+   PASSWORD INPUT with reveal eyeball - the shared-shell STANDARD
+   (PORTABLE-IMPROVEMENTS 2026-07-10). Used on EVERY password field.
+   ============================================================ */
+function PwInput({ value, onChange, placeholder, autoComplete, onEnter }){
+  const [show, setShow] = useState(false);
+  return (
+    <div className="pw-wrap">
+      <input className="input" type={show ? "text" : "password"} value={value}
+        autoCapitalize="off" autoComplete={autoComplete||"current-password"}
+        onChange={e=>onChange(e.target.value)} placeholder={placeholder||""}
+        onKeyDown={e=>{ if(e.key==="Enter" && onEnter) onEnter(); }} />
+      <button type="button" className="pw-eye" onClick={()=>setShow(s=>!s)}
+        aria-label={show ? "Hide password" : "Show password"}>
+        <Icon d={show ? ICONS.eyeOff : ICONS.eye} size={19}/>
+      </button>
+    </div>
+  );
+}
+
+/* ============================================================
+   AUTH SCREEN - sign in / sign up / forgot password
+   ============================================================ */
+function AuthScreen({ store }){
+  /* Arriving from the landing page's "Start free" should START something.
+     The app opened on SIGN IN, so a first-time visitor met a form for an
+     account they do not have and had to find the switch - the whole funnel
+     leaking at the last step. welcome.html links to ./?signup=1 and that
+     lands on Create account instead. Anyone else still gets sign in, which
+     is right: returning users are the common case. (Pattern from FitnessCaptain.) */
+  const [mode, setMode] = useState(() => {
+    try{ return new URLSearchParams(location.search).get("signup") ? "up" : "in"; }
+    catch(e){ return "in"; }
+  });                                        // in | up
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [ok, setOk] = useState("");
+  const [pending, setPending] = useState("");   // email awaiting confirmation
+  const [resetSent, setResetSent] = useState(false);
+
+  const submit = async () => {
+    setErr(""); setOk("");
+    if(!email.trim() || !pw){ setErr("Enter your email and password."); return; }
+    if(mode==="up" && pw.length<6){ setErr("Password must be at least 6 characters."); return; }
+    setBusy(true);
+    try{
+      if(mode==="up"){
+        const { needsConfirm } = await store.signUp(email, pw);
+        if(needsConfirm){
+          setPending(email.trim());
+          setOk("Check your inbox to confirm your email, then sign in.");
+          setMode("in");
+        }
+      } else {
+        await store.signIn(email, pw);
+        // onAuthStateChange takes over from here.
+      }
+    }catch(e){
+      let m = e.message || "Something went wrong.";
+      // Translate raw vendor errors into human copy (playbook section 5).
+      if(pending && email.trim()===pending && /invalid/i.test(m)) m = "Confirm your email first - check your inbox.";
+      else if(/only request this after/i.test(m)) m = "We just sent an email - try again in a minute.";
+      setErr(m); log("ERROR","auth: "+(e.message||m));
+    }finally{ setBusy(false); }
+  };
+
+  const forgot = async () => {
+    setErr(""); setOk("");
+    if(!email.trim()){ setErr("Enter your email above first, then tap Forgot password."); return; }
+    setBusy(true);
+    try{ await store.requestReset(email); setResetSent(true); }
+    catch(e){
+      let m = e.message || "Couldn't send the reset email.";
+      if(/only request this after/i.test(m)) m = "We just sent an email - try again in a minute.";
+      setErr(m);
+    }
+    finally{ setBusy(false); }
+  };
+
+  if(resetSent){
+    return (
+      <div className="auth-wrap">
+        <div className="auth-brand">
+          <div className="mark">Captain<span>Cook</span></div>
+        </div>
+        <div className="auth-msg ok">
+          We sent a password-reset link to <b>{email.trim()}</b>. Tap it and you'll be able to set a new password.
+        </div>
+        <button className="btn btn-ghost btn-block" onClick={()=>{ setResetSent(false); setErr(""); setOk(""); }}>
+          Back to sign in
+        </button>
+      </div>
+    );
+  }
+
+  // The pending-confirmation trap (playbook section 5): after signup we dim
+  // the sign-in flow toward the confirm-first message rather than letting a
+  // raw "invalid credentials" confuse the user.
+  return (
+    <div className="auth-wrap">
+      <div className="auth-brand">
+        <div className="mark">Captain<span>Cook</span></div>
+        <div className="tag">Your recipes, your week, your grocery list.</div>
+      </div>
+      {!CONFIGURED &&
+        <div className="auth-msg err">This build isn't connected to a backend yet: the Supabase and API values still need to be set in index.html.</div>}
+      {err && <div className="auth-msg err">{err}</div>}
+      {ok && <div className="auth-msg ok">{ok}</div>}
+      <div className="field">
+        <label className="label">Email</label>
+        <input className="input" type="email" autoComplete="email" autoCapitalize="off" autoCorrect="off"
+          value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com"
+          onKeyDown={e=>{ if(e.key==="Enter") submit(); }} />
+      </div>
+      <div className="field">
+        <label className="label">Password</label>
+        <PwInput value={pw} onChange={setPw} onEnter={submit}
+          placeholder={mode==="up" ? "At least 6 characters" : "Your password"}
+          autoComplete={mode==="up" ? "new-password" : "current-password"} />
+      </div>
+      <button className="btn btn-primary btn-block" disabled={busy || !CONFIGURED} onClick={submit}>
+        {busy ? <span className="spin"></span> : (mode==="up" ? "Create account" : "Sign in")}
+      </button>
+      <div className="auth-switch">
+        {mode==="up" ? "Already have an account? " : "New here? "}
+        <button onClick={()=>{ setMode(mode==="up"?"in":"up"); setErr(""); setOk(""); }}>
+          {mode==="up" ? "Sign in" : "Create one"}
+        </button>
+      </div>
+      {mode==="in" &&
+        <button className="auth-forgot" disabled={busy} onClick={forgot}>Forgot password?</button>}
+      {/* Privacy / Terms / Support links belong here - app stores require them
+          from the sign-up screen itself, and anyone deciding whether to hand
+          over an email needs them. They are NOT shown yet because the pages do
+          not exist; a dead link is worse. They must land before sign-ups open
+          or billing is switched on (HANDOFF open items). */}
+      <p className="hint center" style={{marginTop:8,opacity:.6}}>v{APP_VERSION}</p>
+    </div>
+  );
+}
+
+/* ============================================================
+   SET PASSWORD - shown after a password-recovery link lands here.
+   ============================================================ */
+function SetPassword({ store }){
+  const [pw, setPw] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const submit = async () => {
+    setErr("");
+    if(pw.length<6){ setErr("Password must be at least 6 characters."); return; }
+    if(pw!==confirm){ setErr("The two passwords don't match."); return; }
+    setBusy(true);
+    try{ await store.updatePassword(pw); }
+    catch(e){ setErr(e.message||"Couldn't update the password."); }
+    finally{ setBusy(false); }
+  };
+
+  return (
+    <div className="auth-wrap">
+      <div className="auth-brand">
+        <div className="mark">Captain<span>Cook</span></div>
+        <div className="tag">Choose a new password for {store.authEmail || "your account"}.</div>
+      </div>
+      {err && <div className="auth-msg err">{err}</div>}
+      <div className="field">
+        <label className="label">New password</label>
+        <PwInput value={pw} onChange={setPw} placeholder="At least 6 characters" autoComplete="new-password" />
+      </div>
+      <div className="field">
+        <label className="label">Confirm new password</label>
+        <PwInput value={confirm} onChange={setConfirm} placeholder="Re-enter it" autoComplete="new-password" onEnter={submit} />
+      </div>
+      <button className="btn btn-primary btn-block" disabled={busy} onClick={submit}>
+        {busy ? <span className="spin"></span> : "Update password"}
+      </button>
+      <p className="hint center" style={{marginTop:16,opacity:.6}}>v{APP_VERSION}</p>
+    </div>
+  );
+}
+
+/* ============================================================
+   SWIPE-TO-DELETE row wrapper (portfolio standard, ported from Tracker).
+   Swipe a row left to reveal a Delete action. Horizontal-only intent
+   detection, so vertical scroll is unaffected; a swipe suppresses the
+   row's open-on-tap.
+   ============================================================ */
+function SwipeRow({ onDelete, className, style, children }){
+  const [dx,setDx] = useState(0);
+  const st = useRef(null); const moved = useRef(false);
+  // Pointer capture is deferred until horizontal drag intent: capturing on
+  // pointerdown retargets the follow-up click to the swipe body, which eats
+  // desktop mouse clicks on the wrapped row's buttons (rows look dead).
+  function down(e){ st.current = { x:e.clientX, y:e.clientY, base:dx }; moved.current = false; }
+  function move(e){
+    if(!st.current) return;
+    const ddx = e.clientX - st.current.x, ddy = e.clientY - st.current.y;
+    if(!moved.current && Math.abs(ddx) > 8 && Math.abs(ddx) > Math.abs(ddy)){
+      moved.current = true;
+      try{ e.currentTarget.setPointerCapture(e.pointerId); }catch(_){}
+    }
+    if(moved.current){ setDx(Math.max(-96, Math.min(0, st.current.base + ddx))); }
+  }
+  function end(){ if(!st.current) return; st.current = null; setDx(d => { const nd = d <= -48 ? -84 : 0; if(nd===0) moved.current = false; return nd; }); }
+  function clickCapture(e){ if(moved.current || dx !== 0){ e.stopPropagation(); e.preventDefault(); moved.current = false; setDx(0); } }
+  return (
+    /* Spacing belongs on the WRAP, not on the row inside it. The delete panel
+       is absolutely positioned to fill this element, so a margin on the child
+       makes the wrap taller than the visible card and the red shows above it -
+       which is exactly the orange sliver Chris spotted on the in-progress
+       card. Callers pass style here instead. */
+    <div className={"swipe-wrap"+(className ? " "+className : "")} style={style}>
+      <button className="swipe-del" onClick={(e)=>{ e.stopPropagation(); setDx(0); onDelete(); }}>
+        <Icon d={ICONS.trash} size={18}/><span>Delete</span>
+      </button>
+      <div className="swipe-body" style={{ transform:"translateX("+dx+"px)", transition: st.current ? "none" : "transform .18s" }}
+        onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onClickCapture={clickCapture}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   SCREENS - step-1 shell. Recipe features land in the build steps listed in
+   HANDOFF.md; until then each screen says what it will hold.
+   ============================================================ */
+function Empty({ icon, title, children }){
+  return (
+    <div className="empty">
+      <div className="glyph"><Icon d={icon} size={40}/></div>
+      <div style={{color:"var(--ink-2)",fontWeight:600}}>{title}</div>
+      <p>{children}</p>
+    </div>
+  );
+}
+
+function RecordList({ rows, titleOf, metaOf }){
+  return (
+    <div className="list">
+      {rows.map(r => (
+        <div key={r.id} className="item">
+          <div className="item-body">
+            <div className="item-title">{titleOf(r)}</div>
+            {metaOf && <div className="subtle">{metaOf(r)}</div>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RecipesScreen({ store }){
+  const rows = store.data.recipes || [];
+  if(!rows.length) return (
+    <Empty icon={ICONS.book} title="No recipes yet">
+      Your recipes will live here - typed in, imported from a link, or read from a photo of a recipe card.
+    </Empty>
+  );
+  return <RecordList rows={rows} titleOf={r => r.title || "Untitled recipe"} />;
+}
+
+function PlanScreen({ store }){
+  const rows = store.data.meal_plan || [];
+  if(!rows.length) return (
+    <Empty icon={ICONS.calendar} title="Nothing planned">
+      Plan the week's meals here, and the shopping list builds itself from what you pick.
+    </Empty>
+  );
+  return <RecordList rows={rows} titleOf={r => r.title || "Planned meal"} metaOf={r => fmtDate(r.date)} />;
+}
+
+function ShoppingScreen({ store }){
+  const rows = store.data.shopping_list || [];
+  if(!rows.length) return (
+    <Empty icon={ICONS.cart} title="Your list is empty">
+      Items from planned recipes land here merged and grouped by aisle, plus anything you add yourself.
+    </Empty>
+  );
+  return <RecordList rows={rows} titleOf={r => r.name || "Item"} />;
+}
+
+function CookLogScreen({ store }){
+  const rows = store.data.cook_log || [];
+  if(!rows.length) return (
+    <Empty icon={ICONS.check} title="Nothing cooked yet">
+      Each time you make something, log it - when, how it went, and what to change next time.
+    </Empty>
+  );
+  return <RecordList rows={rows} titleOf={r => r.title || "Cooked"} metaOf={r => fmtDate(r.date)} />;
+}
+
+function PantryScreen({ store }){
+  const rows = store.data.pantry || [];
+  if(!rows.length) return (
+    <Empty icon={ICONS.jar} title="Pantry is empty">
+      Keep track of what's on hand, and CaptainCook can suggest what to make with it.
+    </Empty>
+  );
+  return <RecordList rows={rows} titleOf={r => r.name || "Item"} />;
+}
+
+/* Only APPROVED techniques ever reach this screen (see TECHNIQUES API). The
+   "Reviewed" mark is shown on every page anyway, so the promise is visible to
+   the reader rather than implicit in the plumbing. */
+function TechniquesScreen(){
+  const [state, setState] = useState({ phase:"loading", rows:[], err:"" });
+  const load = useCallback(async () => {
+    setState(s => ({ ...s, phase:"loading", err:"" }));
+    try{ setState({ phase:"ready", rows: await techniquesGet(), err:"" }); }
+    catch(e){ log("ERROR","techniques: "+e.message); setState({ phase:"error", rows:[], err: e.message }); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  if(state.phase === "loading") return <div className="spin spin-lg"></div>;
+  if(state.phase === "error") return (
+    <div className="card" style={{marginTop:14}}>
+      <div className="auth-msg err">{state.err}</div>
+      <button className="btn btn-ghost btn-block" onClick={load}>Try again</button>
+    </div>
+  );
+  if(!state.rows.length) return (
+    <Empty icon={ICONS.flame} title="No techniques published yet">
+      Searing, braising, reverse-searing, grilling over two zones and more. Every page is reviewed before it appears here.
+    </Empty>
+  );
+  return (
+    <div className="list">
+      {state.rows.map(t => (
+        <div key={t.id} className="item">
+          <div className="item-body">
+            <div className="item-title">{t.title}</div>
+            <div className="item-meta">
+              {t.category && <span className="chip amber">{t.category}</span>}
+              <span className="reviewed-note"><Icon d={ICONS.check} size={13}/> Reviewed</span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* Which tags count as a problem worth isolating. WARN is included because a
+   silent fallback (a bad env value, a rejected match) is exactly the kind of
+   thing you want to see when something "seems fine but is not". */
+const PROBLEM_TAGS = ["ERROR", "WARN"];
+
+function SettingsScreen({ store, onCheckUpdate, updMsg, update, onApplyUpdate }){
+  const [logProblems, setLogProblems] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showLog, setShowLog] = useState(false);
+
+  const problems = LOG.filter(l => PROBLEM_TAGS.indexOf(l.tag) !== -1);
+  const errCount = problems.length;
+  const shownLog = (logProblems ? problems : LOG).slice(-120);
+
+  /* Copies what is ON SCREEN, so "problems only" then Copy gives exactly the
+     problems. Header carries version and build - a log without them is a log
+     nobody can act on. Falls back to a selectable prompt where the clipboard
+     API is unavailable (older iOS in standalone mode) rather than failing
+     silently. */
+  const copyLog = async () => {
+    const NL = String.fromCharCode(10);
+    const header = "CaptainCook v" + APP_VERSION + " (build " + BUILD + ")"
+                 + (logProblems ? " - problems only" : "") + NL;
+    const body = shownLog.map(l => l.t + " [" + l.tag + "] " + l.msg).join(NL);
+    const text = header + (body || "(nothing logged)");
+    try{
+      await navigator.clipboard.writeText(text);
+      setCopied(true); setTimeout(()=>setCopied(false), 1800);
+    }catch(e){
+      try{ window.prompt("Copy the log:", text); }catch(_){}
+    }
+  };
+  /* EXPORT. Everything the account holds, in one file, written on the device.
+     Deliberately not a server job with an email: getting your data back should
+     not require asking anyone. When recipe photos land they must be embedded
+     here too (FitnessCaptain's progress-photo export is the pattern) - a
+     portability right that quietly omits the photos is not the right honoured. */
+  const [exporting, setExporting] = useState(false);
+  const [delPhase, setDelPhase] = useState("idle");   // idle | confirm | busy
+  const [delWord, setDelWord]   = useState("");
+  const [delErr, setDelErr]     = useState("");
+  const [reloadAsk, setReloadAsk] = useState(false);
+
+  const exportData = async () => {
+    setExporting(true);
+    try{
+      const payload = { app: "CaptainCook", version: APP_VERSION,
+                        exportedAt: nowISO(), account: store.authEmail || null,
+                        settings: store.cfg };
+      FILES.forEach(f => { payload[f] = store.data[f] || []; });
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type:"application/json" });
+      const url  = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "captaincook-" + todayStr() + ".json";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch(_){} }, 1000);
+      log("EXPORT","exported "+(payload.recipes||[]).length+" recipes");
+    }catch(e){ log("ERROR","export: "+e.message); }
+    finally{ setExporting(false); }
+  };
+
+  const deleteAccount = async () => {
+    setDelErr(""); setDelPhase("busy");
+    try{
+      const token = await authToken();
+      if(!token) throw new Error("Not signed in.");
+      const r = await fetch(API_BASE + "/api/account", {
+        method:"DELETE",
+        headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+token },
+        body: JSON.stringify({ confirm:"DELETE" }),
+      });
+      if(!r.ok){
+        let msg = "Delete failed ("+r.status+").";
+        try{ const j = await r.json(); if(j && j.detail) msg = j.detail; }catch(_){}
+        throw new Error(msg);
+      }
+      /* The rows are gone server-side, so the local copy has to go too before
+         signing out. Leaving it would let the cache resurrect a deleted log on
+         the next launch, which would be a bad thing to discover. */
+      try{ localStorage.clear(); }catch(_){}
+      log("ACCOUNT","account deleted");
+      await store.signOut();
+      try{ location.reload(); }catch(_){}
+    }catch(e){
+      setDelErr(e.message || "Couldn't delete the account.");
+      setDelPhase("confirm");
+      log("ERROR","account delete: "+e.message);
+    }
+  };
+
+  const setUnits = (u) => store.saveCfg({ ...store.cfg, units: u });
+  return (
+    <div>
+      <div className="set-group">Account</div>
+      <div className="card">
+        <div className="subtle" style={{marginBottom:10}}>{store.authEmail || "Signed in"}</div>
+        <button className="btn btn-ghost btn-block" onClick={()=>store.signOut()}>Sign out</button>
+      </div>
+
+      <div className="set-group">Preferences</div>
+      <div className="card">
+        <div className="subtle">Measurements</div>
+        <div className="pills">
+          <button className={"pill "+(store.cfg.units==="us"?"on":"")} onClick={()=>setUnits("us")}>US (cups, &deg;F)</button>
+          <button className={"pill "+(store.cfg.units==="metric"?"on":"")} onClick={()=>setUnits("metric")}>Metric (grams, &deg;C)</button>
+        </div>
+      </div>
+
+      {/* YOUR DATA. The Privacy Policy promises both of these are reachable
+          without emailing anyone, so they have to exist here. A policy that
+          describes a right nobody implemented is worse than no policy. */}
+      <div className="set-group">Your data</div>
+      <div className="card">
+        <div className="subtle" style={{marginBottom:10}}>
+          Everything you have saved, as a file you keep. No request, no
+          waiting.
+        </div>
+        <button className="btn btn-ghost btn-block" onClick={exportData} disabled={exporting}>
+          {exporting ? <span className="spin"></span>
+                     : <><Icon d={ICONS.text} size={15}/> Export my data</>}
+        </button>
+
+        <div className="subtle" style={{marginTop:18,marginBottom:10}}>
+          Deleting removes your recipes, plans and lists and your sign-in,
+          permanently. Export first if you want a copy.
+        </div>
+        {delPhase === "idle" &&
+          <button className="btn btn-ghost btn-block" onClick={()=>setDelPhase("confirm")}>
+            <Icon d={ICONS.trash} size={15}/> Delete my account
+          </button>}
+        {delPhase === "confirm" &&
+          <div>
+            {/* Typing the word, not a second tap. The undo that covers a
+                mis-swiped row cannot cover this one, so the gesture has to be
+                one you cannot make by accident. */}
+            <div className="subtle" style={{marginBottom:8}}>
+              Type <strong>DELETE</strong> to confirm. This cannot be undone.
+            </div>
+            <input className="input" value={delWord} autoFocus
+              onChange={e=>setDelWord(e.target.value)} placeholder="DELETE" />
+            <div className="row" style={{gap:8,marginTop:10}}>
+              <button className="btn btn-ghost btn-sm" style={{flex:1}}
+                onClick={()=>{ setDelPhase("idle"); setDelWord(""); setDelErr(""); }}>Keep my account</button>
+              <button className="btn btn-primary btn-sm" style={{flex:1}}
+                disabled={delWord.trim().toUpperCase()!=="DELETE"}
+                onClick={deleteAccount}>Delete forever</button>
+            </div>
+          </div>}
+        {delPhase === "busy" && <div className="row center" style={{marginTop:6}}><span className="spin"></span></div>}
+        {delErr && <div className="auth-msg err" style={{marginTop:10}}>{delErr}</div>}
+      </div>
+
+      {/* Reload from cloud: the confirm is inline, not a dialog, and says
+          exactly what is lost. */}
+      <div className="card" style={{marginTop:10}}>
+        {!reloadAsk
+          ? <button className="btn btn-ghost btn-block" onClick={()=>setReloadAsk(true)}>
+              <Icon d={ICONS.refresh} size={15}/> Reload from cloud
+            </button>
+          : <div>
+              <div className="subtle" style={{marginBottom:10}}>
+                Discard this device's copy and pull the latest from the cloud? Any
+                change here that hasn't synced yet will be lost.
+              </div>
+              <div className="row" style={{gap:8}}>
+                <button className="btn btn-ghost btn-sm" style={{flex:1}} onClick={()=>setReloadAsk(false)}>Cancel</button>
+                <button className="btn btn-primary btn-sm" style={{flex:1}}
+                  onClick={()=>{ setReloadAsk(false); store.reloadFromCloud(); }}>Reload</button>
+              </div>
+            </div>}
+      </div>
+
+      <div className="set-group">About</div>
+      <div className="updrow">
+        {update
+          ? <button className="btn btn-primary btn-sm" style={{margin:0}} onClick={()=>onApplyUpdate && onApplyUpdate()}><Icon d={ICONS.sparkle} size={14}/> Update to v{update.ver||update.build}</button>
+          : <button className="btn btn-ghost btn-sm" style={{margin:0}} onClick={()=>onCheckUpdate && onCheckUpdate(true)}>Check for updates</button>}
+        {updMsg && <span className="hint" style={{margin:0}}>{updMsg}</span>}
+      </div>
+      <p className="hint center" style={{marginTop:6}}>CaptainCook v{APP_VERSION}</p>
+
+      {/* Chris: "it would be great if we had the log design like the other
+          apps where you can copy a block, or show just problems and then copy
+          that." Reading a log off a phone screen and retyping it is the worst
+          part of reporting a fault, and the ONE line that matters is usually
+          buried in forty that do not. */}
+      <div className="set-group">Diagnostics</div>
+      <div className="card">
+        <button className="btn btn-ghost btn-block" onClick={()=>setShowLog(s=>!s)}>{showLog ? "Hide" : "Show"} log</button>
+        {showLog && <>
+          <div className="row" style={{marginTop:10}}>
+            <button className={"btn btn-sm "+(logProblems ? "btn-primary" : "btn-ghost")} style={{flex:1}}
+              onClick={()=>setLogProblems(v=>!v)}>
+              {logProblems ? "Showing problems" : "Problems only"}
+              {errCount>0 ? " ("+errCount+")" : ""}
+            </button>
+            <button className="btn btn-ghost btn-sm" style={{flex:1}} onClick={copyLog}>
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+          <div className="subtle" style={{marginTop:10}}>
+            v{APP_VERSION} (build {BUILD}), newest at the bottom.{" "}
+            {logProblems
+              ? (errCount ? errCount + " problem" + (errCount===1?"":"s") : "No problems logged")
+              : LOG.length + " lines"}
+          </div>
+          <div className="log" style={{marginTop:12}}>
+            {shownLog.length === 0
+              ? <div className="subtle">Nothing to show. That is the good outcome.</div>
+              : shownLog.map((l,i)=>(
+                  <div key={i} className={PROBLEM_TAGS.indexOf(l.tag)!==-1 ? "err" : ""}>
+                    <span className="t">{l.t} </span><span className="tag">[{l.tag}]</span> {l.msg}
+                  </div>
+                ))}
+          </div>
+        </>}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   MORE HUB (PriorityCaptain pattern, 2026-07-24 nav standard)
+   The nav caps at five slots, so the screens you visit less often live here.
+   ============================================================ */
+function MoreScreen({ store, onOpen, onOpenSettings }){
+  const n = (f) => (store.data[f]||[]).length;
+  const rows = [
+    { b:"Techniques", s:"Cooking and grilling, reviewed", ic:ICONS.flame, go:()=>onOpen("techniques") },
+    { b:"Cook log",   s:n("cook_log")+" logged", ic:ICONS.check, go:()=>onOpen("cooklog") },
+    { b:"Pantry",     s:n("pantry")+" on hand", ic:ICONS.jar, go:()=>onOpen("pantry") },
+    { b:"Settings",   s:"Account, measurements, your data, updates", ic:ICONS.gear, go:onOpenSettings },
+  ];
+  return (
+    <div>
+      {rows.map(r=>(
+        <button key={r.b} className="act-row" onClick={r.go}>
+          <span className="act-ic"><Icon d={r.ic} size={20}/></span>
+          <span className="act-txt"><b>{r.b}</b><span>{r.s}</span></span>
+          <span className="act-chev"><Icon d={ICONS.chev} size={18}/></span>
+        </button>
+      ))}
+      <p className="hint center" style={{marginTop:18,opacity:.6}}>CaptainCook v{APP_VERSION}</p>
+    </div>
+  );
+}
+
+/* ============================================================
+   APP SHELL
+   ============================================================ */
+// Nav = Recipes - Plan - Shopping - More. Techniques / Cook log / Pantry live
+// under More and keep TABS entries so the topbar titles them when opened.
+//
+// NO CENTER + YET, on purpose. The 2026-07-24 nav standard puts a create
+// button in the middle slot, but in step 1 there is nothing to create, and a
+// button that opens onto nothing is the dead-end FitnessCaptain already had to
+// remove. It returns with the recipe editor, which is also when showUndo gets
+// its first caller.
+const TABS = [
+  { key:"recipes",    label:"Recipes",    eyebrow:"Cook",       icon:ICONS.book },
+  { key:"plan",       label:"Plan",       eyebrow:"This week",  icon:ICONS.calendar },
+  { key:"shopping",   label:"Shopping",   eyebrow:"To buy",     icon:ICONS.cart },
+  { key:"more",       label:"More",       eyebrow:"Everything", icon:ICONS.more },
+  { key:"techniques", label:"Techniques", eyebrow:"Learn",      icon:ICONS.flame },
+  { key:"cooklog",    label:"Cook log",   eyebrow:"Made it",    icon:ICONS.check },
+  { key:"pantry",     label:"Pantry",     eyebrow:"On hand",    icon:ICONS.jar },
+];
+const HUB_TABS = ["techniques","cooklog","pantry"];
+
+function App(){
+  const store = useStore();
+  const [tab, setTab] = useState("recipes");
+  const [inSettings, setInSettings] = useState(false);
+
+  const [toast, setToast] = useState(null);   // null | {msg, undo}
+  const toastRef = useRef();
+  const showToast = (m) => {
+    setToast({ msg: m, undo: null });
+    clearTimeout(toastRef.current); toastRef.current = setTimeout(()=>setToast(null), 2200);
+  };
+  /* Undo for deletions. Every delete in this app is a filter on a collection,
+     so the cheapest correct undo is to keep the WHOLE previous array and put
+     it back - no index bookkeeping, no partial restore, and order is
+     preserved exactly. Held only for as long as the toast is up; after that
+     the deletion stands.
+
+     Longer window than a plain toast (6s vs 2.2s) because reading "deleted",
+     realising it was wrong and reaching the button takes longer than reading
+     a confirmation you expected. */
+  const showUndo = (msg, restore) => {
+    setToast({ msg, undo: () => { restore(); clearTimeout(toastRef.current); setToast(null); } });
+    // Twelve, not six. A plain toast only has to be noticed; an UNDO has to be
+    // noticed, read, decided about and then reached for, and Chris was losing
+    // it before the decision (FitnessCaptain). Long enough to act, short enough not to sit
+    // over the thing you are looking at.
+    clearTimeout(toastRef.current); toastRef.current = setTimeout(()=>setToast(null), 12000);
+  };
+  // --- PWA self-update: fetch the deployed index.html (no-store), read its
+  // BUILD stamp, offer a one-tap refresh when a genuinely newer build is live.
+  // Checks on launch AND resume AND a periodic timer - installed PWAs are
+  // usually RESUMED, not cold-launched (portable fix from MenuCaptain).
+  const [update, setUpdate] = useState(null);   // { ver, build } of a newer deployed build, else null
+  const [updMsg, setUpdMsg] = useState("");     // inline status for the Settings "Check for updates" row
+  const updTimer = useRef(null);
+  // Show a status line for a few seconds then clear it (used for terminal results).
+  const flashUpd = useCallback((msg)=>{ setUpdMsg(msg); if(updTimer.current) clearTimeout(updTimer.current); updTimer.current = setTimeout(()=>setUpdMsg(""), 4000); },[]);
+  // manual=true is the Settings button: show inline "Checking..." then a result. On
+  // launch/resume we check quietly and only surface the banner if there's an update.
+  // Detection compares the deployed BUILD (monotonic date stamp) so it never misfires;
+  // the deployed APP_VERSION is read alongside it purely to LABEL the update ("v0.13.1").
+  const checkUpdate = useCallback(async (manual=false)=>{
+    if(manual){ if(updTimer.current) clearTimeout(updTimer.current); setUpdMsg("Checking..."); }
+    try{
+      const res = await fetch(location.pathname + "?_=" + Date.now(), { cache:"no-store" });
+      if(!res.ok){ log("UPDATE","check http "+res.status); if(manual) flashUpd("Couldn't check - are you online?"); return; }
+      const html = await res.text();
+      const mb = html.match(/const BUILD = "([^"]+)";/);       const rBuild = mb && mb[1];
+      const mv = html.match(/const APP_VERSION = "([^"]+)";/); const rVer = mv && mv[1];
+      /* EITHER signal is enough, and that redundancy is the point. Detection
+         used to rest on BUILD alone, and BUILD sat unchanged through eight
+         releases (0.74 to 0.81) while APP_VERSION climbed - so the check
+         honestly reported "you're on the latest" every time and Chris was
+         stranded on 0.77 with no way to tell. A release ritual that silently
+         breaks the updater when one line is missed is the wrong shape: now a
+         changed version is sufficient by itself. */
+      const versionMoved = rVer && rVer !== APP_VERSION;
+      if((rBuild && buildIsNewer(rBuild, BUILD)) || versionMoved){
+        log("UPDATE","update live: v"+(rVer||"?")+" build "+(rBuild||"?")+
+                     (versionMoved && !(rBuild && buildIsNewer(rBuild, BUILD)) ? " (version only)" : ""));
+        setUpdate({ ver:rVer, build:rBuild || String(Date.now()) }); if(manual) setUpdMsg(""); }
+      else { log("UPDATE","up to date (v"+APP_VERSION+", "+BUILD+")"); setUpdate(null); if(manual) flashUpd("You're on the latest (v"+APP_VERSION+")"); }
+    }catch(e){ log("UPDATE","check failed: "+e.message); if(manual) flashUpd("Update check failed"); }
+  },[flashUpd]);
+  useEffect(()=>{
+    let last=0; const GAP=60*1000;
+    const maybe=()=>{ const now=Date.now(); if(now-last<GAP) return; last=now; checkUpdate(false); };
+    const t=setTimeout(maybe, 1500);                       // initial launch check
+    const onVis=()=>{ if(document.visibilityState==="visible") maybe(); };
+    document.addEventListener("visibilitychange", onVis);
+    const iv=setInterval(maybe, 20*60*1000);               // periodic while open
+    return ()=>{ clearTimeout(t); clearInterval(iv); document.removeEventListener("visibilitychange", onVis); };
+  },[checkUpdate]);
+
+  // Service worker: app-shell offline caching. Registered with a RELATIVE path
+  // so the scope is /captaincook-app/ on GitHub Pages ("/sw.js" would 404).
+  // Deliberately no web manifest (template decision): without one, Add to Home
+  // Screen uses the current page URL as the launch URL.
+  useEffect(()=>{
+    if(!("serviceWorker" in navigator)) return;
+    const onLoad = ()=>{ navigator.serviceWorker.register("sw.js")
+      .then(()=>log("SW","registered"))
+      .catch(e=>log("SW","register failed: "+(e&&e.message))); };
+    if(document.readyState==="complete") onLoad(); else window.addEventListener("load", onLoad);
+    return ()=>window.removeEventListener("load", onLoad);
+  },[]);
+
+  // Apply by navigating to a build-stamped URL so iOS can't serve cached HTML.
+  // Wipe the SW caches first so the new build is never masked by a cached shell.
+  function applyUpdate(){
+    const stamp=(update&&update.build)||String(Date.now());
+    log("UPDATE","applying -> "+stamp);
+    try{ if(navigator.serviceWorker && navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage("clearCache"); }catch(_){}
+    window.location.replace(location.pathname + "?u=" + encodeURIComponent(stamp));
+  }
+
+  if(!store.authReady){
+    return <div className="app"><div className="spin spin-lg"></div></div>;
+  }
+  if(store.recovery){
+    return <SetPassword store={store} />;
+  }
+  if(!store.authed){
+    return <AuthScreen store={store} />;
+  }
+
+  const activeTab = TABS.find(t=>t.key===tab) || TABS[0];
+
+  // More stays lit while a hub screen is open.
+  const navBtn = (key) => {
+    const t = TABS.find(x=>x.key===key);
+    const on = tab===key || (key==="more" && HUB_TABS.indexOf(tab)!==-1);
+    return (
+      <button key={key} className={"nav-btn "+(on?"on":"")} onClick={()=>setTab(key)}
+        aria-current={on?"page":undefined}>
+        <Icon d={t.icon} size={22}/>
+        {t.label}
+      </button>
+    );
+  };
+
+  return (
+    <div className="app">
+      {update &&
+        <button className="update-bar" onClick={applyUpdate}>
+          <span><Icon d={ICONS.sparkle} size={14}/> Update available <b>(v{update.ver||update.build})</b></span>
+          <span className="update-go">Refresh</span>
+        </button>}
+
+      <div className="topbar">
+        <div className="topbar-row">
+          <div>
+            <div className="eyebrow">{inSettings ? "Configure" : activeTab.eyebrow}</div>
+            <h1 className="title">{inSettings ? "Settings" : activeTab.label}</h1>
+          </div>
+          <button className="icon-btn" onClick={()=>setInSettings(s=>!s)} aria-label="Settings">
+            <Icon d={inSettings ? ICONS.back : ICONS.gear} size={21}/>
+          </button>
+        </div>
+        {/* The error state is a button: it is the one moment the badge should be
+            tappable, and a dead label stuck until something else triggered a
+            pull (found on FitnessCaptain). */}
+        {store.sync==="error"
+          ? <button className="sync error" onClick={()=>store.pullAll()}>
+              <span className="dot"></span>
+              {(store.syncMsg || "Sync error")} - tap to retry
+            </button>
+          : <div className={"sync "+store.sync}>
+              <span className="dot"></span>
+              {store.sync==="idle" && "All changes saved"}
+              {store.sync==="busy" && "Syncing..."}
+              {store.sync==="pending" && "Offline - will sync"}
+            </div>}
+      </div>
+
+      <div className="screen">
+        {inSettings
+          ? <SettingsScreen store={store} onCheckUpdate={checkUpdate} updMsg={updMsg} update={update} onApplyUpdate={applyUpdate} />
+          : <>
+              {tab==="recipes"    && <RecipesScreen store={store} />}
+              {tab==="plan"       && <PlanScreen store={store} />}
+              {tab==="shopping"   && <ShoppingScreen store={store} />}
+              {tab==="techniques" && <TechniquesScreen />}
+              {tab==="cooklog"    && <CookLogScreen store={store} />}
+              {tab==="pantry"     && <PantryScreen store={store} />}
+              {tab==="more"       && <MoreScreen store={store} onOpen={setTab} onOpenSettings={()=>setInSettings(true)} />}
+            </>}
+      </div>
+
+      {!inSettings &&
+        <nav className="nav">
+          {["recipes","plan","shopping","more"].map(navBtn)}
+        </nav>}
+
+      {toast &&
+        <div className={"toast" + (toast.undo ? " can-undo" : "")}>
+          <span style={{flex:1,minWidth:0}}>{toast.msg}</span>
+          {toast.undo &&
+            <button className="toast-undo" onClick={toast.undo}>Undo</button>}
+        </div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

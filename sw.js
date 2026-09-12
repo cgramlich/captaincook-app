@@ -1,0 +1,190 @@
+/* CaptainCook service worker - app shell offline.
+   ===========================================================================
+   Ported from the Tracker/MenuCaptain worker. THIS APP IS SERVED FROM A
+   SUBPATH (https://cgramlich.github.io/captaincook-app/), not a domain
+   root, so the shell key and every scope check are derived from the worker's
+   own location instead of hard-coded "/".
+
+   The rule that matters most: never trap the user on a stale build.
+   - The app document is NETWORK-FIRST, so an online launch always gets the
+     freshest index.html and the in-app updater keeps working untouched.
+   - The updater's own check fetches the doc WITH a query string
+     (index.html?_=...); that is deliberately NOT intercepted, so it always
+     hits the real network.
+   - Cache names are tied to VERSION and `activate` deletes everything else,
+     so each deploy rolls the cache cleanly.
+   - Bump VERSION in lockstep with APP_VERSION in index.html - changing these
+     bytes is what makes the browser install the new worker.
+*/
+
+const VERSION      = "0.1.0";                  // keep in lockstep with APP_VERSION
+const SHELL_CACHE  = "cc-shell-" + VERSION;
+const ASSET_CACHE  = "cc-assets-" + VERSION;
+const DATA_CACHE   = "cc-data-v1";              // user collections; UN-versioned so it
+                                                // survives app updates
+// Subpath-safe: resolves to "/captaincook-app/" (or "/" if served from a root).
+const SHELL_URL    = new URL("./", self.location).pathname;
+
+/* Primed on install so even the very first offline open works.
+   Each is a Request with SRI (integrity) + CORS mode, mirroring the <script>
+   tags in index.html - the fetch fails (and is skipped by allSettled) if the
+   CDN response doesn't hash-match, so a tampered copy never enters the cache.
+
+   THIS LIST MUST HOLD EVERY <script src> IN index.html. It held React and
+   ReactDOM only, which is a shell that cannot boot: the whole app is one
+   inline type="text/babel" block, so without babel-standalone nothing is
+   transpiled, nothing renders, and you get a black screen with no error on
+   it. Chris hit exactly that offline (FitnessCaptain).
+
+   It was survivable-looking because isImmutableAsset() below caches these on
+   first use, so any online load fills the gaps. But ASSET_CACHE is keyed to
+   VERSION and `activate` deletes the old one, so every single deploy reopens
+   the window: new worker installs with two of the four files, and until the
+   next full online load the app cannot start without a network. Priming all
+   four closes it.
+
+   The hashes must match index.html exactly. A stale hash here is silent -
+   allSettled swallows the failure and the file just never caches. */
+const CRITICAL_ASSETS = [
+  new Request("https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js", {
+    integrity: "sha384-tMH8h3BGESGckSAVGZ82T9n90ztNXxvdwvdM6UoR56cYcf+0iGXBliJ29D+wZ/x8",
+    mode: "cors",
+  }),
+  new Request("https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js", {
+    integrity: "sha384-bm7MnzvK++ykSwVJ2tynSE5TRdN+xL418osEVF2DE/L/gfWHj91J2Sphe582B1Bh",
+    mode: "cors",
+  }),
+  // The one whose absence is fatal: it compiles the app.
+  new Request("https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js", {
+    integrity: "sha384-1qlE7MZPM2pHD/pBZCU/yB8UCP52RYL8bge/qNdfNBCWToySp8/M+JL2waXU4hjJ",
+    mode: "cors",
+  }),
+  // Sign-in needs the network anyway, but the script has to PARSE offline or
+  // the boot sequence throws before any of the local data is read.
+  new Request("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.js", {
+    integrity: "sha384-faMlYZUtkJj+Sh6Bmu/L0GzPcraRWN6CW+9RH3GUrK/Z0WS9tgaNNt0tHiLxsbdb",
+    mode: "cors",
+  }),
+];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil((async () => {
+    // allSettled so one CDN hiccup can't fail the whole install.
+    const assets = await caches.open(ASSET_CACHE);
+    await Promise.allSettled(CRITICAL_ASSETS.map((u) => assets.add(u)));
+    try {
+      const shell = await caches.open(SHELL_CACHE);
+      const r = await fetch(SHELL_URL, { cache: "no-store" });
+      if (r && r.ok) await shell.put(SHELL_URL, r.clone());
+    } catch (e) { /* offline at install - fill on the first online load */ }
+    await self.skipWaiting();
+  })());
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys.filter((k) => k !== SHELL_CACHE && k !== ASSET_CACHE && k !== DATA_CACHE)
+          .map((k) => caches.delete(k))
+    );
+    await self.clients.claim();
+  })());
+});
+
+// Lets the app force a full cache wipe (used right before applying an update).
+self.addEventListener("message", (event) => {
+  const data = event.data;
+  if (data === "clearCache" || (data && data.type === "clearCache")) {
+    event.waitUntil((async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    })());
+  }
+});
+
+function isImmutableAsset(url) {
+  if (url.hostname === "cdnjs.cloudflare.com") return true;      // versioned libs
+  if (url.hostname === "cdn.jsdelivr.net") return true;          // supabase-js
+  if (url.hostname === "fonts.googleapis.com") return true;      // font css
+  if (url.hostname === "fonts.gstatic.com") return true;         // font files
+  if (url.origin === self.location.origin &&
+      /\.(png|jpe?g|webp|gif|svg|ico|woff2?)$/i.test(url.pathname)) return true;  // our icons
+  return false;
+}
+
+async function shellNetworkFirst(req) {
+  const cache = await caches.open(SHELL_CACHE);
+  try {
+    const fresh = await fetch(req);
+    if (fresh && fresh.ok) cache.put(SHELL_URL, fresh.clone());   // canonical key, no ?query pollution
+    return fresh;
+  } catch (e) {
+    const cached = await cache.match(SHELL_URL);
+    return cached || Response.error();
+  }
+}
+
+// Network-first for user collections, with a short timeout so a flaky connection
+// falls back to the last saved copy instead of hanging. Only race the timeout when
+// there IS a cached copy - otherwise (e.g. a cold backend) wait for the real answer.
+async function dataNetworkFirst(req) {
+  const cache = await caches.open(DATA_CACHE);
+  const cached = await cache.match(req);
+  try {
+    const fresh = cached
+      ? await Promise.race([
+          fetch(req),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000)),
+        ])
+      : await fetch(req);
+    if (fresh && fresh.ok) cache.put(req, fresh.clone());
+    return fresh;
+  } catch (e) {
+    if (cached) return cached;
+    throw e;                                   // no cache -> surface the real error
+  }
+}
+
+async function cacheFirst(req, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(req);
+  if (cached) return cached;
+  try {
+    const fresh = await fetch(req);
+    if (fresh && (fresh.ok || fresh.type === "opaque")) cache.put(req, fresh.clone());
+    return fresh;
+  } catch (e) {
+    return cached || Response.error();
+  }
+}
+
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
+  if (req.method !== "GET") return;             // never cache writes
+  let url;
+  try { url = new URL(req.url); } catch (e) { return; }
+
+  const isAppDoc = url.origin === self.location.origin &&
+                   (url.pathname === SHELL_URL || url.pathname === SHELL_URL + "index.html");
+
+  // App document: network-first. A navigation always counts; a plain (query-less)
+  // GET counts too. The updater's check is a query'd non-navigation fetch, so it
+  // falls through to the real network and version detection is never masked.
+  if (isAppDoc && (req.mode === "navigate" || !url.search)) {
+    event.respondWith(shellNetworkFirst(req));
+    return;
+  }
+
+  // User collections -> keep the last good copy for offline reads.
+  if (url.pathname.indexOf("/api/collection/") !== -1) {
+    event.respondWith(dataNetworkFirst(req));
+    return;
+  }
+
+  if (isImmutableAsset(url)) {
+    event.respondWith(cacheFirst(req, ASSET_CACHE));
+    return;
+  }
+  // Everything else (AI relay, auth) -> default network, never cached.
+});
