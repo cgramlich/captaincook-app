@@ -351,6 +351,33 @@ svg{fill:none;stroke:currentColor;stroke-width:2;}
   border:1px solid var(--amber-line);color:var(--amber-2);font-size:12.5px;font-weight:700;
   display:flex;align-items:center;justify-content:center;margin-top:1px;}
 .rx-notes{white-space:pre-wrap;color:var(--ink-2);font-size:14.5px;line-height:1.55;}
+
+/* ---------- week plan ---------- */
+.week-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;}
+.week-nav .wk{font-weight:600;font-size:15px;text-align:center;flex:1;}
+.day{margin-top:14px;}
+.day-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 2px 6px;}
+.day-name{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:700;}
+.day.today .day-name{color:var(--amber);}
+.day-add{font-size:12.5px;font-weight:600;color:var(--amber-2);padding:4px 8px;border-radius:999px;}
+.day-empty{font-size:13px;color:var(--ink-3);padding:4px 2px 2px;}
+.slot{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:700;margin-bottom:2px;}
+
+/* ---------- shopping list ---------- */
+.add-row{display:flex;gap:8px;margin-top:12px;}
+.add-row .input{flex:1;}
+.aisle{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin:18px 4px 6px;}
+.check-row{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:left;padding:12px 14px;background:var(--bg-2);
+  border:1px solid var(--line-2);border-radius:var(--radius);}
+.check-box{flex:0 0 auto;width:22px;height:22px;border-radius:7px;border:1.5px solid var(--line-2);display:flex;align-items:center;justify-content:center;margin-top:1px;}
+.check-row.done .check-box{background:var(--green);border-color:var(--green);color:#10140e;}
+.check-box svg{width:14px;height:14px;stroke-width:3;}
+.check-row.done .check-text{color:var(--ink-3);text-decoration:line-through;}
+.check-text{font-size:15px;line-height:1.4;word-break:break-word;}
+.check-from{font-size:11.5px;color:var(--ink-3);margin-top:2px;}
+.pick-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:11px 4px;border-bottom:1px solid var(--line);}
+.pick-row.on{color:var(--amber-2);}
+.pick-row .t{flex:1;min-width:0;font-weight:500;}
 </style>
 </head>
 <body>
@@ -377,10 +404,10 @@ const LOG_CAP = 600;
 const LOG = [];
 // User-facing semantic version (MAJOR.MINOR.PATCH). Shown in Settings + update
 // prompts. Bump on every deploy: PATCH for a fix, MINOR for a feature.
-const APP_VERSION = "0.2.0";
+const APP_VERSION = "0.3.0";
 // Internal build stamp - what the updater COMPARES (monotonic) + cache-busts.
 // Keep sw.js VERSION in lockstep with APP_VERSION on every deploy.
-const BUILD = "2026-09-12.2";
+const BUILD = "2026-09-12.3";
 // True iff build stamp `a` (YYYY-MM-DD.N) is strictly newer than `b`.
 function buildIsNewer(a, b){
   const parse = s => String(s||"").split(/[-.]/).map(n=>parseInt(n,10)||0);
@@ -877,6 +904,7 @@ const ICONS = {
   plus:    ["M12 5v14","M5 12h14"],
   edit:    ["M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7","M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"],
   clock:   ["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z","M12 7v5l3 2"],
+  left:    ["M15 18l-6-6 6-6"],
   link:    ["M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7","M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"],
 };
 
@@ -1432,24 +1460,244 @@ function RecipeSheet({ recipe, onSave, onDelete, onClose }){
   );
 }
 
-function PlanScreen({ store }){
-  const rows = store.data.meal_plan || [];
-  if(!rows.length) return (
-    <Empty icon={ICONS.calendar} title="Nothing planned">
-      Plan the week's meals here, and the shopping list builds itself from what you pick.
-    </Empty>
+/* ============================================================
+   WEEK PLAN + SHOPPING LIST (build step 4, 2026-09-12).
+
+   meal_plan records: { id, date:"YYYY-MM-DD", slot, recipeId|null, title,
+                        createdAt, updatedAt }
+     A plan entry either points at a recipe or is free text ("leftovers",
+     "eat out") - a real week has both, and forcing a recipe for every night
+     would make the planner a chore.
+
+   shopping_list records: { id, text, aisle, checked, from:[recipe titles],
+                            createdAt, updatedAt }
+
+   MERGING IS TEXT-ONLY FOR NOW. "2 cups flour" and "1 cup flour" stay two lines
+   until step 6 parses quantities; what IS merged is the identical line from two
+   recipes, which then lists both recipes under it. Road not taken: guessing
+   quantities with regex here - a wrong merged amount on a shopping list is
+   worse than two honest lines.
+   ============================================================ */
+const MEAL_SLOTS = ["breakfast","lunch","dinner","other"];
+
+// Weeks start on Monday, in LOCAL time. Dates are handled as "YYYY-MM-DD"
+// strings built from local parts, never via toISOString(), which is UTC and
+// shifts the day for anyone west of Greenwich in the evening.
+function ymd(d){ const p = n => String(n).padStart(2,"0"); return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate()); }
+function parseYmd(str){ const [y,m,d] = String(str).split("-").map(Number); return new Date(y, (m||1)-1, d||1); }
+function addDays(str, n){ const d = parseYmd(str); d.setDate(d.getDate()+n); return ymd(d); }
+function weekStartOf(str){ const d = parseYmd(str); const back = (d.getDay()+6) % 7; d.setDate(d.getDate()-back); return ymd(d); }
+function dayLabel(str){ return parseYmd(str).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}); }
+
+/* AISLE GUESS - local and deterministic, no AI call. A wrong guess costs one
+   glance in the store, so a short keyword list is the right size. The FIRST
+   matching group wins, so ORDER IS THE RULE: spices, powders and stocks are
+   checked first because they name produce and meat ("garlic powder", "ground
+   cumin", "chicken stock") while living in the pantry aisle. Anything unmatched
+   goes to Other. */
+const AISLES = [
+  ["Pantry",   ["powder","ground cumin","ground cinnamon","ground ginger","black pepper","pepper flakes","dried","spice","cumin","paprika","cinnamon","oregano","nutmeg","salt","extract","stock","broth","bouillon"]],
+  ["Produce",  ["apple","banana","lemon","lime","orange","berr","grape","avocado","tomato","potato","onion","garlic","shallot","carrot","celery","pepper","lettuce","spinach","kale","cabbage","broccoli","cauliflower","zucchini","squash","cucumber","mushroom","herb","parsley","cilantro","basil","mint","thyme","rosemary","ginger","scallion","leek","corn","bean sprout","jalapeno","fruit","vegetable"]],
+  ["Meat & seafood", ["chicken","beef","pork","lamb","turkey","bacon","sausage","ham","steak","brisket","ribs","fish","salmon","tuna","shrimp","cod","tilapia","scallop","crab","lobster"]],
+  ["Dairy & eggs", ["milk","buttermilk","butter","cream","cheese","yogurt","egg","sour cream","half-and-half","parmesan","mozzarella","cheddar","ricotta"]],
+  ["Bakery",   ["bread","bun","roll","tortilla","pita","baguette","croissant"]],
+  ["Frozen",   ["frozen","ice cream"]],
+  ["Pantry",   ["flour","sugar","baking","yeast","oil","vinegar","rice","pasta","noodle","bean","lentil","sauce","honey","syrup","vanilla","cocoa","chocolate","oat","cereal","nut","soy","mustard","ketchup","mayo","can","jar","coffee","tea"]],
+];
+function guessAisle(text){
+  const t = String(text||"").toLowerCase();
+  for(const [aisle, words] of AISLES){ if(words.some(w => t.indexOf(w) !== -1)) return aisle; }
+  return "Other";
+}
+// DISPLAY order follows a typical walk through the store, and is deliberately
+// separate from the MATCH order above (which has to check spices first).
+const AISLE_ORDER = ["Produce","Meat & seafood","Dairy & eggs","Bakery","Pantry","Frozen","Other"];
+const normLine = (t) => String(t||"").trim().replace(/\s+/g," ").toLowerCase();
+
+function PlanScreen({ store, onOpenRecipe, onDelete, onAddTo, onBuildList }){
+  const today = todayStr();
+  const [week, setWeek] = useState(() => weekStartOf(today));
+  const entries = store.data.meal_plan || [];
+  const recipes = store.data.recipes || [];
+  const byId = {}; recipes.forEach(r => { byId[r.id] = r; });
+  const days = Array.from({length:7}, (_, i) => addDays(week, i));
+  const inWeek = entries.filter(e => e.date >= days[0] && e.date <= days[6]);
+  const withRecipes = inWeek.filter(e => e.recipeId && byId[e.recipeId]);
+  const end = parseYmd(days[6]);
+  const weekText = parseYmd(days[0]).toLocaleDateString(undefined,{month:"short",day:"numeric"}) + " - " +
+                   end.toLocaleDateString(undefined,{month:"short",day:"numeric"});
+
+  return (
+    <div>
+      <div className="week-nav">
+        <button className="icon-btn" onClick={()=>setWeek(addDays(week,-7))} aria-label="Previous week"><Icon d={ICONS.left} size={20}/></button>
+        <div className="wk">
+          {weekText}
+          {week !== weekStartOf(today) &&
+            <div><button className="day-add" onClick={()=>setWeek(weekStartOf(today))}>Back to this week</button></div>}
+        </div>
+        <button className="icon-btn" onClick={()=>setWeek(addDays(week,7))} aria-label="Next week"><Icon d={ICONS.chev} size={20}/></button>
+      </div>
+
+      {days.map(d => {
+        const list = inWeek.filter(e => e.date === d)
+          .sort((a,b) => MEAL_SLOTS.indexOf(a.slot) - MEAL_SLOTS.indexOf(b.slot));
+        return (
+          <div key={d} className={"day"+(d===today?" today":"")}>
+            <div className="day-head">
+              <span className="day-name">{d===today ? "Today - " : ""}{dayLabel(d)}</span>
+              <button className="day-add" onClick={()=>onAddTo(d)}>+ Add</button>
+            </div>
+            {list.length === 0
+              ? <div className="day-empty">Nothing planned.</div>
+              : <div className="list" style={{marginTop:0,gap:8}}>
+                  {list.map(e => {
+                    const r = e.recipeId ? byId[e.recipeId] : null;
+                    return (
+                      <SwipeRow key={e.id} onDelete={()=>onDelete(e.id)}>
+                        <button className="item" onClick={()=>{ if(r) onOpenRecipe(r.id); }}>
+                          <div className="item-body">
+                            <div className="slot">{e.slot}</div>
+                            <div className="item-title">{r ? r.title : (e.title || (e.recipeId ? "Recipe no longer in your box" : "Meal"))}</div>
+                          </div>
+                        </button>
+                      </SwipeRow>
+                    );
+                  })}
+                </div>}
+          </div>
+        );
+      })}
+
+      <div className="stick-actions">
+        <button className="btn btn-primary btn-block" disabled={!withRecipes.length} onClick={()=>onBuildList(withRecipes)}>
+          <Icon d={ICONS.cart} size={15}/> Add this week's ingredients to the list
+        </button>
+        {!withRecipes.length &&
+          <p className="hint center" style={{marginBottom:0}}>Plan a recipe this week and its ingredients can go straight onto your list.</p>}
+      </div>
+    </div>
   );
-  return <RecordList rows={rows} titleOf={r => r.title || "Planned meal"} metaOf={r => fmtDate(r.date)} />;
 }
 
-function ShoppingScreen({ store }){
-  const rows = store.data.shopping_list || [];
-  if(!rows.length) return (
-    <Empty icon={ICONS.cart} title="Your list is empty">
-      Items from planned recipes land here merged and grouped by aisle, plus anything you add yourself.
-    </Empty>
+function PlanSheet({ store, date, onSave, onClose }){
+  const [slot, setSlot] = useState("dinner");
+  const [q, setQ] = useState("");
+  const [recipeId, setRecipeId] = useState(null);
+  const [title, setTitle] = useState("");
+  const recipes = (store.data.recipes || []).slice().sort((a,b) => (a.title||"").localeCompare(b.title||""));
+  const needle = q.trim().toLowerCase();
+  const shown = recipes.filter(r => !needle || (r.title||"").toLowerCase().indexOf(needle) !== -1);
+  const ok = recipeId || title.trim();
+  const save = () => {
+    if(!ok) return;
+    const now = nowISO();
+    onSave({ id: uid(), date, slot, recipeId: recipeId || null,
+             title: recipeId ? "" : title.trim(), createdAt: now, updatedAt: now });
+  };
+  return (
+    <>
+      <div className="scrim" style={{zIndex:85}} onClick={onClose}></div>
+      <div className="sheet" style={{zIndex:86}}>
+        <div className="sheet-grip"></div>
+        <div className="sheet-head">
+          <h2 className="sheet-title">Plan {dayLabel(date)}</h2>
+          <button className="sheet-x" onClick={onClose} aria-label="Close"><Icon d={ICONS.x} size={18}/></button>
+        </div>
+        <div className="pills" style={{marginTop:0}}>
+          {MEAL_SLOTS.map(m =>
+            <button key={m} className={"pill "+(slot===m?"on":"")} onClick={()=>setSlot(m)}>
+              {m.charAt(0).toUpperCase()+m.slice(1)}
+            </button>)}
+        </div>
+
+        <div className="label" style={{marginTop:18}}>From your recipes</div>
+        {recipes.length === 0
+          ? <p className="hint">No recipes yet - type a meal below instead.</p>
+          : <>
+              <div className="search-wrap" style={{marginTop:0}}>
+                <input className="input" value={q} onChange={e=>setQ(e.target.value)} placeholder="Find a recipe" />
+              </div>
+              <div style={{maxHeight:240,overflowY:"auto",marginTop:6}}>
+                {shown.map(r => (
+                  <button key={r.id} className={"pick-row"+(recipeId===r.id?" on":"")}
+                    onClick={()=>{ setRecipeId(recipeId===r.id ? null : r.id); setTitle(""); }}>
+                    <span className="t">{r.title || "Untitled recipe"}</span>
+                    {recipeId===r.id && <Icon d={ICONS.check} size={18}/>}
+                  </button>
+                ))}
+                {shown.length === 0 && <p className="hint">No recipe matches.</p>}
+              </div>
+            </>}
+
+        <div className="field" style={{marginTop:16}}>
+          <label className="label">Or just write it</label>
+          <input className="input" value={title} placeholder="Leftovers, eat out, tacos..."
+            onChange={e=>{ setTitle(e.target.value); if(e.target.value) setRecipeId(null); }} />
+        </div>
+
+        <button className="btn btn-primary btn-block" disabled={!ok} onClick={save}>Add to plan</button>
+      </div>
+    </>
   );
-  return <RecordList rows={rows} titleOf={r => r.name || "Item"} />;
+}
+
+function ShoppingScreen({ store, onToggle, onAdd, onDelete, onClearChecked }){
+  const [text, setText] = useState("");
+  const rows = store.data.shopping_list || [];
+  const add = () => { if(text.trim()){ onAdd(text); setText(""); } };
+  const open = rows.filter(r => !r.checked);
+  const done = rows.filter(r => r.checked);
+  const groups = AISLE_ORDER.map(a => [a, open.filter(r => (r.aisle||"Other") === a)]).filter(g => g[1].length);
+
+  // A render FUNCTION, not a nested component: a component defined inside this
+  // one is a new type every render, so React would remount every row (and drop
+  // any half-finished swipe) on each keystroke in the add box.
+  const row = (r) => (
+    <SwipeRow key={r.id} onDelete={()=>onDelete(r.id)}>
+      <button className={"check-row"+(r.checked?" done":"")} onClick={()=>onToggle(r.id)}
+        aria-pressed={!!r.checked}>
+        <span className="check-box">{r.checked && <Icon d={ICONS.check} size={14}/>}</span>
+        <span style={{flex:1,minWidth:0}}>
+          <div className="check-text">{r.text}</div>
+          {(r.from||[]).length > 0 && <div className="check-from">for {r.from.join(", ")}</div>}
+        </span>
+      </button>
+    </SwipeRow>
+  );
+
+  return (
+    <div>
+      <div className="add-row">
+        <input className="input" value={text} onChange={e=>setText(e.target.value)} placeholder="Add an item"
+          onKeyDown={e=>{ if(e.key==="Enter") add(); }} />
+        <button className="btn btn-primary" onClick={add} disabled={!text.trim()} aria-label="Add item">
+          <Icon d={ICONS.plus} size={16}/>
+        </button>
+      </div>
+
+      {rows.length === 0 &&
+        <Empty icon={ICONS.cart} title="Your list is empty">
+          Add items above, or plan recipes for the week and send their ingredients here.
+        </Empty>}
+
+      {groups.map(([aisle, list]) => (
+        <div key={aisle}>
+          <div className="aisle">{aisle}</div>
+          <div className="list" style={{marginTop:0,gap:8}}>{list.map(row)}</div>
+        </div>
+      ))}
+
+      {done.length > 0 &&
+        <div>
+          <div className="aisle" style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span>In the cart ({done.length})</span>
+            <button className="day-add" onClick={onClearChecked}>Clear</button>
+          </div>
+          <div className="list" style={{marginTop:0,gap:8}}>{done.map(row)}</div>
+        </div>}
+    </div>
+  );
 }
 
 function CookLogScreen({ store }){
@@ -1787,6 +2035,7 @@ function App(){
   const [inSettings, setInSettings] = useState(false);
   const [recipeView, setRecipeView] = useState(null);     // open recipe page (id)
   const [recipeSheet, setRecipeSheet] = useState(null);   // null | {recipe: rec|null}
+  const [planFor, setPlanFor] = useState(null);           // date the plan sheet is adding to
 
   const [toast, setToast] = useState(null);   // null | {msg, undo}
   const toastRef = useRef();
@@ -1900,6 +2149,68 @@ function App(){
   };
   const openRecipe = (store.data.recipes || []).find(r => r.id === recipeView) || null;
 
+  // Every delete in this app is a filter on one collection, so Undo keeps the
+  // whole previous array and puts it back.
+  const deleteFrom = (file, id, label) => {
+    const before = (store.data[file] || []).slice();
+    store.saveCollection(file, before.filter(r => r.id !== id));
+    showUndo(label + " removed", () => store.saveCollection(file, before));
+  };
+
+  // ---- plan ----
+  const savePlan = (entry) => {
+    store.saveCollection("meal_plan", [...(store.data.meal_plan || []), entry]);
+    setPlanFor(null);
+    showToast("Added to the plan");
+  };
+
+  // ---- shopping list ----
+  const addItems = (lines) => {
+    const list = (store.data.shopping_list || []).slice();
+    let added = 0, merged = 0, credited = 0;
+    const now = nowISO();
+    lines.forEach(({ text, from }) => {
+      const key = normLine(text);
+      if(!key) return;
+      const hit = list.find(r => !r.checked && normLine(r.text) === key);
+      if(hit){
+        if(from && (hit.from||[]).indexOf(from) === -1){
+          const i = list.indexOf(hit);
+          list[i] = { ...hit, from: [...(hit.from||[]), from], updatedAt: now };
+          credited++;
+        }
+        merged++;
+        return;
+      }
+      list.push({ id: uid(), text: String(text).trim(), aisle: guessAisle(text), checked: false,
+                  from: from ? [from] : [], createdAt: now, updatedAt: now });
+      added++;
+    });
+    if(added || credited) store.saveCollection("shopping_list", list);
+    return { added, merged, changed: added + credited };
+  };
+  const buildList = (planned) => {
+    const byId = {}; (store.data.recipes || []).forEach(r => { byId[r.id] = r; });
+    const lines = [];
+    planned.forEach(e => { const r = byId[e.recipeId];
+      (r && r.ingredients || []).forEach(i => lines.push({ text: i.text, from: r.title })); });
+    const before = (store.data.shopping_list || []).slice();
+    const { added, merged, changed } = addItems(lines);
+    // Undo is only offered when something actually changed - an Undo that
+    // restores an identical list is a button that lies about doing something.
+    if(!changed){ showToast("Everything is already on your list"); return; }
+    showUndo(added + " item" + (added===1?"":"s") + " added" + (merged ? " (" + merged + " combined)" : ""),
+             () => store.saveCollection("shopping_list", before));
+  };
+  const toggleItem = (id) => store.saveCollection("shopping_list",
+    (store.data.shopping_list || []).map(r => r.id === id ? { ...r, checked: !r.checked, updatedAt: nowISO() } : r));
+  const clearChecked = () => {
+    const before = (store.data.shopping_list || []).slice();
+    const n = before.filter(r => r.checked).length;
+    store.saveCollection("shopping_list", before.filter(r => !r.checked));
+    showUndo(n + " item" + (n===1?"":"s") + " cleared", () => store.saveCollection("shopping_list", before));
+  };
+
   if(!store.authReady){
     return <div className="app"><div className="spin spin-lg"></div></div>;
   }
@@ -1965,8 +2276,11 @@ function App(){
           : <>
               {tab==="recipes"    && <RecipesScreen store={store} onAdd={()=>setRecipeSheet({recipe:null})}
                 onOpen={setRecipeView} onDelete={deleteRecipe} />}
-              {tab==="plan"       && <PlanScreen store={store} />}
-              {tab==="shopping"   && <ShoppingScreen store={store} />}
+              {tab==="plan"       && <PlanScreen store={store} onOpenRecipe={setRecipeView} onAddTo={setPlanFor}
+                onDelete={(id)=>deleteFrom("meal_plan", id, "Meal")} onBuildList={buildList} />}
+              {tab==="shopping"   && <ShoppingScreen store={store} onToggle={toggleItem}
+                onAdd={(t)=>addItems([{ text: t, from: null }])} onClearChecked={clearChecked}
+                onDelete={(id)=>deleteFrom("shopping_list", id, "Item")} />}
               {tab==="techniques" && <TechniquesScreen />}
               {tab==="cooklog"    && <CookLogScreen store={store} />}
               {tab==="pantry"     && <PantryScreen store={store} />}
@@ -1977,6 +2291,9 @@ function App(){
       {openRecipe &&
         <RecipePage recipe={openRecipe} onClose={()=>setRecipeView(null)}
           onEdit={()=>setRecipeSheet({recipe: openRecipe})} onDelete={deleteRecipe} />}
+
+      {planFor &&
+        <PlanSheet store={store} date={planFor} onSave={savePlan} onClose={()=>setPlanFor(null)} />}
 
       {recipeSheet &&
         <RecipeSheet key={recipeSheet.recipe ? recipeSheet.recipe.id : "new"} recipe={recipeSheet.recipe}
